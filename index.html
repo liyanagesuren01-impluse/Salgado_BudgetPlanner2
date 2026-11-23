@@ -197,9 +197,7 @@ input:disabled, select:disabled { background: var(--surface-2); color: var(--mut
    ===================================================================== */
 
 // ---------- Connection settings: filled in when the planner is hosted ----------
-// Own server (e.g. Lanka Host, PHP + MySQL): set API_URL to 'api.php'. Leave everything empty for demo mode (this computer only).
-const API_URL = '';            // own server: 'api.php'
-// Or Supabase instead of your own server:
+// Supabase connection. Leave both empty for demo mode (this computer only).
 const SUPABASE_URL = 'https://fsvdtgzkzjngykdetwah.supabase.co';       // e.g. https://abcdefgh.supabase.co
 const SUPABASE_KEY = 'sb_publishable_iUePfwGqClXW6k2ETtIGdQ_kwaWio_F';  // Supabase: Settings > API Keys > Publishable key (sb_publishable_…)
 const LOGIN_DOMAIN = 'salgado-planner.app'; // login name "FMbudgetplanner" = fmbudgetplanner@salgado-planner.app in Supabase
@@ -251,16 +249,7 @@ function toast(msg) {
 // =====================================================================
 const Store = {
   mode: 'local', data: {}, rev: 0, session: null, lastSync: null, pending: 0, error: '', onChange: null,
-  kind: API_URL ? 'php' : 'supabase',
-  remoteConfigured() { return !!API_URL || !!(SUPABASE_URL && SUPABASE_KEY); },
-  // ---- own server (api.php) ----
-  async php(action, body, qs = '') {
-    const r = await fetch(`${API_URL}?action=${action}${qs}`, { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-SGP': '1' }, body: body ? JSON.stringify(body) : undefined });
-    const j = await r.json().catch(() => ({}));
-    if (r.status === 401) { if (action !== 'login') this.saveSession(null); throw new Error(j.error || '401 Signed out'); }
-    if (!r.ok) throw new Error(j.error || `${r.status} server error`);
-    return j;
-  },
+  remoteConfigured() { return !!(SUPABASE_URL && SUPABASE_KEY); },
   get(k) { return this.data[k] ?? null; },
   keys(prefix) { return Object.keys(this.data).filter(k => k.startsWith(prefix)); },
   bump() { this.rev++; Engine.clear(); },
@@ -274,15 +263,15 @@ const Store = {
   // ---- Supabase ----
   hdr(extra = {}) { return { apikey: SUPABASE_KEY, ...(this.session ? { Authorization: 'Bearer ' + this.session.access_token } : {}), 'Content-Type': 'application/json', ...extra }; },
   saveSession(s) { this.session = s; try { if (s) localStorage.setItem('sgp-session', JSON.stringify(s)); else localStorage.removeItem('sgp-session'); } catch (e) { /* ignore */ } },
-  restoreSession() { try { const s = JSON.parse(localStorage.getItem('sgp-session') || 'null'); if (s && (s.refresh_token || (s.php && this.kind === 'php'))) this.session = s; } catch (e) { /* ignore */ } return !!this.session; },
+  restoreSession() { try { const s = JSON.parse(localStorage.getItem('sgp-session') || 'null'); if (s && s.refresh_token) this.session = s; } catch (e) { /* ignore */ } return !!this.session; },
   async auth(body, grant) {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=${grant}`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Sign-in failed');
     this.saveSession({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, user: (j.user && j.user.email) || body.email || '' });
   },
-  login(user, pass) { if (this.kind === 'php') return this.php('login', { user: user.trim(), pass }).then(j => this.saveSession({ user: j.user, php: true })); const email = user.includes('@') ? user.trim() : `${user.trim().toLowerCase()}@${LOGIN_DOMAIN}`; return this.auth({ email, password: pass }, 'password'); },
-  async ensureFresh() { if (this.kind === 'php') return; if (this.session && Date.now() > this.session.expires_at - 60000) await this.auth({ refresh_token: this.session.refresh_token }, 'refresh_token'); },
+  login(user, pass) { const email = user.includes('@') ? user.trim() : `${user.trim().toLowerCase()}@${LOGIN_DOMAIN}`; return this.auth({ email, password: pass }, 'password'); },
+  async ensureFresh() { if (this.session && Date.now() > this.session.expires_at - 60000) await this.auth({ refresh_token: this.session.refresh_token }, 'refresh_token'); },
   async api(path, opts = {}, retry = true) {
     await this.ensureFresh();
     const r = await fetch(SUPABASE_URL + path, { ...opts, headers: this.hdr(opts.headers) });
@@ -291,7 +280,6 @@ const Store = {
     return r;
   },
   async loadRemote() {
-    if (this.kind === 'php') { const j = await this.php('load'); const all = {}; j.rows.forEach(x => { if (x.value !== null) all[x.key] = x.value; }); this.data = all; this.lastSync = j.seq; this.bump(); return; }
     const all = {}; let from = 0, latest = null;
     for (;;) {
       const r = await this.api('/rest/v1/kv?select=key,value,updated_at&order=key', { headers: { Range: `${from}-${from + 999}`, 'Range-Unit': 'items' } });
@@ -305,7 +293,6 @@ const Store = {
     this.pending++; this.error = ''; this.onChange && this.onChange('sync');
     const now = new Date().toISOString();
     try {
-      if (this.kind === 'php') { await this.php('put', { rows }); return true; }
       await this.api('/rest/v1/kv', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.map(r => ({ key: r.key, value: r.value, updated_at: now, updated_by: this.session ? this.session.user : '' }))) });
       return true;
     } catch (e) { this.error = 'Not saved: ' + e.message; toast('Could not save to the shared database. Check the internet connection and try again.'); return false; }
@@ -314,10 +301,6 @@ const Store = {
   async poll() {
     if (this.mode !== 'remote' || !this.session) return;
     try {
-      if (this.kind === 'php') {
-        const j = await this.php('since', null, '&seq=' + encodeURIComponent(this.lastSync)); if (!j.rows.length) return;
-        j.rows.forEach(x => { if (x.value === null) delete this.data[x.key]; else this.data[x.key] = x.value; }); this.lastSync = j.seq; this.bump(); this.onChange && this.onChange('remote'); return;
-      }
       const r = await this.api(`/rest/v1/kv?select=key,value,updated_at&updated_at=gt.${encodeURIComponent(this.lastSync)}&order=updated_at`);
       const rows = await r.json(); if (!rows.length) return;
       rows.forEach(x => { if (x.value === null) delete this.data[x.key]; else this.data[x.key] = x.value; if (x.updated_at > this.lastSync) this.lastSync = x.updated_at; });
@@ -1896,7 +1879,7 @@ document.addEventListener('click', async e => {
     case 'tab': ui.tab = d.id; return go();
     case 'unlock': await askPin(d.level === 'director' ? 'Set-up needs the director PIN.' : 'Enter the director PIN or the operations head password.', d.level || 'ops'); return go();
     case 'lock': ui.unlockUntil = 0; ui.role = null; return go();
-    case 'signout': if (Store.kind === 'php') Store.php('logout', {}).catch(() => {}); Store.saveSession(null); Store.data = {}; Store.bump(); return go();
+    case 'signout': Store.saveSession(null); Store.data = {}; Store.bump(); return go();
     case 'planym': ui.planToday = d.v === 'today'; if (d.v !== 'today') { ui.ym = d.v; ui.per.var = null; ui.per.wi = null; } return go();
     case 'menu-region': ui.menuRegion = ui.menuRegion === d.id ? null : d.id; return go();
     case 'export': return doExport(d.kind);
