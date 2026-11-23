@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salgado Budget Planner</title><style>
+:root {
+  --brown: #5c3317; --dbrown: #4a2c17; --green: #0b5d3b; --shadeA: #fbf6ec; --shadeB: #edf5ee;
+  --bg: #f3f4f1; --surface: #ffffff; --surface-2: #eceee9; --ink: #16201d; --muted: #5b6662;
+  --line: #d6dad3; --accent: #0d6b5e; --accent-ink: #ffffff; --accent-soft: #d9ece7;
+  --s1: #2a78d6; --s2: #eb6834;
+  --good: #0a7a3a; --good-soft: #dcf1e3; --warn: #a86a00; --warn-soft: #fbedcf; --bad: #c0362f; --bad-soft: #f8dedb;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--body); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { margin: 0; font-weight: 600; }
+h1 { font-size: 20px; } h2 { font-size: 17px; } h3 { font-size: 15px; }
+p { margin: 0 0 6px; max-width: 75ch; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.note { color: var(--muted); font-size: 12.5px; }
+.neg { color: var(--bad); }
+.hidden { display: none !important; }
+
+/* Header */
+header.top { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; }
+.bar h1 { margin-right: 6px; color: var(--brown); font-weight: 700; }
+.menu-btn { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); cursor: pointer; font-weight: 600; }
+.menu-btn:hover { border-color: var(--accent); }
+.sync { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.sync .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); display: inline-block; }
+.sync .dot.busy { background: var(--warn); } .sync .dot.err { background: var(--bad); }
+.lockbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 12.5px; }
+.lockbtn.open { background: var(--warn-soft); border-color: var(--warn); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+.kpi { background: var(--surface); padding: 8px 16px; }
+.kpi .lab { font-size: 11.5px; color: var(--green); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.kpi .v { font-size: 21px; font-weight: 800; color: #000; }
+.kpi .v.neg { color: var(--bad); }
+.kpi .sub { font-size: 12px; color: var(--muted); }
+nav.tabs { display: flex; gap: 2px; padding: 0 10px; overflow-x: auto; border-top: 1px solid var(--line); }
+nav.tabs button { border: 0; background: none; padding: 10px 12px; cursor: pointer; color: var(--muted); font-weight: 700; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--green); border-bottom-color: var(--green); }
+nav.tabs button .later { font-size: 10.5px; color: var(--muted); margin-left: 4px; }
+
+/* Dropdown menu: green with white lettering; regions open a side menu */
+.menu-btn { background: var(--green); color: #fff; border-color: var(--green); }
+.dd, .dd-side { position: fixed; z-index: 40; top: 54px; left: 16px; width: 290px; max-height: calc(100vh - 70px); overflow: auto; background: var(--green); color: #fff; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 6px; }
+.dd-side { left: 312px; width: 280px; background: #0e6e47; }
+.dd h4 { margin: 10px 8px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #cfe8dc; }
+.dd button, .dd-side button, .dd summary { display: block; width: 100%; text-align: left; border: 0; background: none; color: #fff; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.dd button:hover, .dd-side button:hover, .dd summary:hover { background: rgba(255,255,255,.14); }
+.dd button.cur, .dd-side button.cur { background: rgba(255,255,255,.24); font-weight: 600; }
+.dd button.open { background: rgba(255,255,255,.18); }
+.dd button .arr { float: right; opacity: .8; }
+.dd details { border-top: 1px solid rgba(255,255,255,.2); margin-top: 8px; padding-top: 4px; }
+.dd summary { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #cfe8dc; list-style: none; }
+.dd summary::before { content: '▸ '; } .dd details[open] summary::before { content: '▾ '; }
+.dd-side h4 { margin: 8px 8px 4px; font-size: 12px; color: #fff; }
+.dd .l2 { padding-left: 22px; }
+.dd-back { position: fixed; inset: 0; z-index: 39; }
+
+/* Layout */
+.shell { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 14px; padding: 14px; align-items: start; }
+.shell.full { grid-template-columns: minmax(0, 1fr); }
+aside.levers { position: sticky; top: 170px; max-height: calc(100vh - 185px); overflow: auto; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+#main .card h2, #main .card > header h2 { color: var(--green); }
+.exportbar { display: flex; justify-content: flex-end; gap: 6px; margin: -4px 0 10px; }
+.exportbar .btn { font-size: 12.5px; padding: 4px 10px; }
+.card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.sm { padding: 2px 8px; font-size: 12.5px; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 5px 11px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2); white-space: nowrap; }
+.pill.good { background: var(--good-soft); color: var(--good); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); }
+.callout { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.callout.warn { background: var(--warn-soft); }
+.callout.bad { background: var(--bad-soft); }
+
+/* Tables */
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+th.dt, td.dt { color: var(--dbrown); font-weight: 700; }
+table.zebra tr > *:nth-child(even):not(:first-child) { background: var(--shadeA); }
+table.zebra tr > *:nth-child(odd):not(:first-child) { background: var(--shadeB); }
+table.zebra tr.total > * { background-image: linear-gradient(rgba(0,0,0,.03), rgba(0,0,0,.03)); }
+tr.total td { font-weight: 600; border-top: 1.5px solid var(--ink); }
+tr.sub td:first-child { padding-left: 24px; color: var(--muted); }
+tr.sub td { font-size: 12.5px; color: var(--muted); }
+tr.head td { font-weight: 600; background: var(--surface-2); }
+td.l, th.l { text-align: left; }
+td input.num, td input.txt, td select { width: 100%; min-width: 80px; }
+input.num, input.txt, select, textarea { border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; background: var(--surface); }
+input.num { text-align: right; }
+input.ovr { background: var(--warn-soft); border-color: var(--warn); }
+input:disabled, select:disabled { background: var(--surface-2); color: var(--muted); }
+.cellpair { display: flex; gap: 4px; align-items: center; }
+.cellpair input { min-width: 70px; }
+.reset { border: 0; background: none; cursor: pointer; color: var(--warn); padding: 0 2px; }
+.tick { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--muted); }
+
+/* Levers */
+.lv-h { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 0 4px; }
+.lv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.lv .nm { font-size: 13px; }
+.lv .nm small { display: block; color: var(--muted); font-size: 11.5px; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper button { width: 24px; height: 24px; border: 1px solid var(--line); background: var(--surface); border-radius: 5px; cursor: pointer; padding: 0; }
+.stepper input { width: 62px; }
+.lv .val { font-weight: 600; text-align: right; }
+.monthtabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.monthtabs button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 12.5px; }
+.monthtabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.monthtabs button .flag { display: block; font-size: 10px; opacity: .8; }
+
+/* Forms */
+.form { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; }
+.fld { display: flex; flex-direction: column; gap: 2px; }
+.fld > span { font-size: 12.5px; }
+.fld .hint { font-size: 11.5px; color: var(--muted); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--surface); }
+.item .t { font-weight: 600; }
+.item .meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Modal */
+.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 60; display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--surface); border-radius: 12px; padding: 18px 20px; width: min(420px, 92vw); box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+.modal h2 { margin-bottom: 8px; }
+.modal input { width: 100%; padding: 8px; font-size: 16px; margin: 8px 0; }
+
+/* Login */
+.login { max-width: 380px; margin: 12vh auto; }
+.login .card { padding: 24px; }
+.login input { width: 100%; padding: 8px; margin: 4px 0 10px; }
+
+/* Chart */
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; z-index: 70; max-width: 90vw; font-size: 13px; }
+
+/* Print */
+#printhost { display: none; }
+@media print {
+  body > *:not(#printhost) { display: none !important; }
+  #printhost { display: block !important; }
+  #printhost .exportbar, #printhost button, #printhost .btns:empty { display: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff; font-size: 11px; }
+  .pdoc { page-break-after: always; }
+  .pdoc:last-child { page-break-after: auto; }
+  .pdoc h1 { font-size: 16px; margin-bottom: 2px; }
+  .pdoc .meta { color: #555; margin-bottom: 10px; }
+  .pdoc h2 { font-size: 13px; margin: 12px 0 4px; }
+  th, td { padding: 3px 6px; }
+  @page { size: A4 landscape; margin: 12mm; }
+  .pdoc .card { border: 0; padding: 0; margin-bottom: 10px; }
+  .pdoc .grid2 { display: block; }
+  .pdoc .chart svg { max-height: 240px; }
+}
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  aside.levers { position: static; max-height: none; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+}
+</style></head><body><div id="app"></div><script>
+'use strict';
+/* =====================================================================
+   Salgado Budget Planner · core: settings, storage and the P&L engine
+   ===================================================================== */
+
+// ---------- Connection settings: filled in when the planner is hosted ----------
+// Own server (e.g. Lanka Host, PHP + MySQL): set API_URL to 'api.php'. Leave everything empty for demo mode (this computer only).
+const API_URL = '';            // own server: 'api.php'
+// Or Supabase instead of your own server:
+const SUPABASE_URL = '';       // e.g. https://abcdefgh.supabase.co
+const SUPABASE_KEY = '';  // Supabase: Settings > API Keys > Publishable key (sb_publishable_…)
+const LOGIN_DOMAIN = 'salgado-planner.app'; // login name "FMbudgetplanner" = fmbudgetplanner@salgado-planner.app in Supabase
+
+// ---------- Small helpers ----------
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clone = o => JSON.parse(JSON.stringify(o));
+const num = v => { const n = typeof v === 'string' ? parseFloat(v.replace(/[,\s]/g, '')) : +v; return isFinite(n) ? n : 0; };
+const isNum = v => v !== null && v !== undefined && v !== '' && isFinite(+v);
+const sum = a => a.reduce((x, y) => x + (+y || 0), 0);
+const pad2 = n => String(n).padStart(2, '0');
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const thisYm = () => todayStr().slice(0, 7);
+function ymAdd(ym, n) { let y = +ym.slice(0, 4), m = +ym.slice(5, 7) + n; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1; return `${y}-${pad2(m)}`; }
+const dim = ym => new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+const monthLabel = ym => { if (!ym) return '—'; const d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1, 1); return d.toLocaleString('en-GB', { month: 'short' }) + ' ' + ym.slice(2, 4); };
+function addDays(ds, n) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function weekStart(ds) { const d = new Date(ds + 'T00:00:00'); const wd = (d.getDay() + 6) % 7; return addDays(ds, -wd); } // Monday
+const fmtDate = ds => { if (!ds) return '—'; const d = new Date(ds.slice(0, 10) + 'T00:00:00'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }); };
+function overlapDays(ws, ym) { let n = 0; for (let i = 0; i < 7; i++) if (addDays(ws, i).slice(0, 7) === ym) n++; return n; }
+
+const money = v => {
+  if (v == null || !isFinite(v)) return '—';
+  const a = Math.abs(v), sg = v < 0 ? '−' : '';
+  if (a >= 1e6) return `${sg}Rs ${(a / 1e6).toFixed(2)}M`;
+  if (a >= 1e3) return `${sg}Rs ${Math.round(a / 1e3).toLocaleString('en-US')}k`;
+  return `${sg}Rs ${Math.round(a)}`;
+};
+const full = v => (v == null || !isFinite(v)) ? '—' : (v < 0 ? '−' : '') + Math.round(Math.abs(v)).toLocaleString('en-US');
+const pct = (v, d = 1) => v == null || !isFinite(v) ? '—' : `${v < 0 ? '−' : ''}${Math.abs(v * 100).toFixed(d)}%`;
+const spct = (v, d = 1) => v == null || !isFinite(v) ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(d)}%`;
+const spts = (v, d = 1) => v == null || !isFinite(v) ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(d)} pts`;
+
+async function sha256(text) {
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+  catch (e) { let h = 0; for (const c of text) h = (h * 31 + c.charCodeAt(0)) | 0; return 'x' + h; }
+}
+const PIN_SALT = 'salgado-planner:';
+
+function toast(msg) {
+  let t = $('#toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toast.tm); toast.tm = setTimeout(() => { t.hidden = true; }, 3500);
+}
+
+// =====================================================================
+// Storage: one key-value table. Local (this browser) or Supabase (shared).
+// =====================================================================
+const Store = {
+  mode: 'local', data: {}, rev: 0, session: null, lastSync: null, pending: 0, error: '', onChange: null,
+  kind: API_URL ? 'php' : 'supabase',
+  remoteConfigured() { return !!API_URL || !!(SUPABASE_URL && SUPABASE_KEY); },
+  // ---- own server (api.php) ----
+  async php(action, body, qs = '') {
+    const r = await fetch(`${API_URL}?action=${action}${qs}`, { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-SGP': '1' }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { if (action !== 'login') this.saveSession(null); throw new Error(j.error || '401 Signed out'); }
+    if (!r.ok) throw new Error(j.error || `${r.status} server error`);
+    return j;
+  },
+  get(k) { return this.data[k] ?? null; },
+  keys(prefix) { return Object.keys(this.data).filter(k => k.startsWith(prefix)); },
+  bump() { this.rev++; Engine.clear(); },
+  async set(k, v) { this.data[k] = v; this.bump(); return this.persist(k, v); },
+  async del(k) { delete this.data[k]; this.bump(); return this.persist(k, null); },
+  async persist(k, v) {
+    if (this.mode === 'local') { try { localStorage.setItem('sgp-db', JSON.stringify(this.data)); } catch (e) { toast('Could not save on this computer (storage full or blocked).'); return false; } return true; }
+    return this.push([{ key: k, value: v }]);
+  },
+  loadLocal() { try { this.data = JSON.parse(localStorage.getItem('sgp-db') || '{}') || {}; } catch (e) { this.data = {}; } this.bump(); },
+  // ---- Supabase ----
+  hdr(extra = {}) { return { apikey: SUPABASE_KEY, ...(this.session ? { Authorization: 'Bearer ' + this.session.access_token } : {}), 'Content-Type': 'application/json', ...extra }; },
+  saveSession(s) { this.session = s; try { if (s) localStorage.setItem('sgp-session', JSON.stringify(s)); else localStorage.removeItem('sgp-session'); } catch (e) { /* ignore */ } },
+  restoreSession() { try { const s = JSON.parse(localStorage.getItem('sgp-session') || 'null'); if (s && (s.refresh_token || (s.php && this.kind === 'php'))) this.session = s; } catch (e) { /* ignore */ } return !!this.session; },
+  async auth(body, grant) {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=${grant}`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Sign-in failed');
+    this.saveSession({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, user: (j.user && j.user.email) || body.email || '' });
+  },
+  login(user, pass) { if (this.kind === 'php') return this.php('login', { user: user.trim(), pass }).then(j => this.saveSession({ user: j.user, php: true })); const email = user.includes('@') ? user.trim() : `${user.trim().toLowerCase()}@${LOGIN_DOMAIN}`; return this.auth({ email, password: pass }, 'password'); },
+  async ensureFresh() { if (this.kind === 'php') return; if (this.session && Date.now() > this.session.expires_at - 60000) await this.auth({ refresh_token: this.session.refresh_token }, 'refresh_token'); },
+  async api(path, opts = {}, retry = true) {
+    await this.ensureFresh();
+    const r = await fetch(SUPABASE_URL + path, { ...opts, headers: this.hdr(opts.headers) });
+    if (r.status === 401 && retry && this.session) { await this.auth({ refresh_token: this.session.refresh_token }, 'refresh_token'); return this.api(path, opts, false); }
+    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(`${r.status} ${t.slice(0, 160)}`); }
+    return r;
+  },
+  async loadRemote() {
+    if (this.kind === 'php') { const j = await this.php('load'); const all = {}; j.rows.forEach(x => { if (x.value !== null) all[x.key] = x.value; }); this.data = all; this.lastSync = j.seq; this.bump(); return; }
+    const all = {}; let from = 0, latest = null;
+    for (;;) {
+      const r = await this.api('/rest/v1/kv?select=key,value,updated_at&order=key', { headers: { Range: `${from}-${from + 999}`, 'Range-Unit': 'items' } });
+      const rows = await r.json();
+      rows.forEach(x => { if (x.value !== null) all[x.key] = x.value; if (!latest || x.updated_at > latest) latest = x.updated_at; });
+      if (rows.length < 1000) break; from += 1000;
+    }
+    this.data = all; this.lastSync = latest || new Date(0).toISOString(); this.bump();
+  },
+  async push(rows) {
+    this.pending++; this.error = ''; this.onChange && this.onChange('sync');
+    const now = new Date().toISOString();
+    try {
+      if (this.kind === 'php') { await this.php('put', { rows }); return true; }
+      await this.api('/rest/v1/kv', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows.map(r => ({ key: r.key, value: r.value, updated_at: now, updated_by: this.session ? this.session.user : '' }))) });
+      return true;
+    } catch (e) { this.error = 'Not saved: ' + e.message; toast('Could not save to the shared database. Check the internet connection and try again.'); return false; }
+    finally { this.pending--; this.onChange && this.onChange('sync'); }
+  },
+  async poll() {
+    if (this.mode !== 'remote' || !this.session) return;
+    try {
+      if (this.kind === 'php') {
+        const j = await this.php('since', null, '&seq=' + encodeURIComponent(this.lastSync)); if (!j.rows.length) return;
+        j.rows.forEach(x => { if (x.value === null) delete this.data[x.key]; else this.data[x.key] = x.value; }); this.lastSync = j.seq; this.bump(); this.onChange && this.onChange('remote'); return;
+      }
+      const r = await this.api(`/rest/v1/kv?select=key,value,updated_at&updated_at=gt.${encodeURIComponent(this.lastSync)}&order=updated_at`);
+      const rows = await r.json(); if (!rows.length) return;
+      rows.forEach(x => { if (x.value === null) delete this.data[x.key]; else this.data[x.key] = x.value; if (x.updated_at > this.lastSync) this.lastSync = x.updated_at; });
+      this.bump(); this.onChange && this.onChange('remote');
+    } catch (e) { this.error = 'Connection problem: ' + e.message; this.onChange && this.onChange('sync'); }
+  },
+  async replaceAll(obj) {
+    const old = Object.keys(this.data);
+    this.data = clone(obj); this.bump();
+    if (this.mode === 'local') return this.persist();
+    const rows = Object.entries(obj).map(([key, value]) => ({ key, value }));
+    old.filter(k => !(k in obj)).forEach(key => rows.push({ key, value: null }));
+    for (let i = 0; i < rows.length; i += 200) { const ok = await this.push(rows.slice(i, i + 200)); if (!ok) return false; }
+    return true;
+  },
+};
+
+// =====================================================================
+// Settings (the "config" record) and defaults
+// =====================================================================
+const UNIT_TYPES = { main: 'Main branch', large: 'Large branch', outlet: 'Outlet / small branch', franchise: 'Franchise', restaurant: 'Restaurant' };
+const MODEL_TYPES = { small_branch: { name: 'Small branch', unitType: 'outlet' }, large_branch: { name: 'Large branch', unitType: 'large' }, small_franchise: { name: 'Small franchise', unitType: 'franchise' }, large_franchise: { name: 'Large franchise', unitType: 'franchise' } };
+
+function defaultSections() {
+  return [['bakery', 'Bakery'], ['short', 'Short eats kitchen'], ['hot', 'Hot kitchen'], ['rice', 'Rice & curry kitchen'], ['roti', 'Roti & hoppers'], ['tea', 'Tea counter'], ['juice', 'Juice & dessert counter'], ['cakes', 'Cake production'], ['biscuits', 'Biscuits & cookies']].map(([id, name]) => ({ id, name }));
+}
+function defaultCats() {
+  return [
+    ['bakery', 'Bakery items', 'bakery'], ['bread', 'Bread', 'bakery', true], ['cakes', 'Cakes', 'cakes'], ['short', 'Short eats', 'short'], ['hotkitchen', 'Hot kitchen (rice, kottu)', 'hot'],
+    ['rice', 'Rice & curry', 'rice'], ['roti', 'Roti & hoppers', 'roti'], ['tea', 'Tea', 'tea'], ['juice', 'Fruit juice & desserts', 'juice'], ['biscuits', 'Biscuits & cookies', 'biscuits'],
+    ['buysell', 'Buying & selling (resale)', ''], ['delivery', 'PickMe / Uber orders', ''], ['transfer', 'Items from Salgado bakeries', ''],
+  ].map(([id, name, section, exempt]) => ({ id, name, section, vatExempt: !!exempt, inputVat: 40 }));
+}
+function defaultModels() {
+  const mk = (id, type, name, sales) => ({ id, type, name, sales, rm: { bakery: 48, bread: 50, cakes: 50, short: 50, tea: 50 }, wastage: 3, gaspack: 2, branchExp: 3, ss: 7, oh: 6, bm: 3 });
+  return [
+    mk('m_small_branch', 'small_branch', 'Small branch', { bakery: 450000, bread: 200000, cakes: 120000, short: 250000, tea: 180000 }),
+    mk('m_large_branch', 'large_branch', 'Large branch', { bakery: 1100000, bread: 450000, cakes: 350000, short: 600000, tea: 500000 }),
+    mk('m_small_franchise', 'small_franchise', 'Small franchise', { bakery: 300000, bread: 150000, cakes: 80000, short: 170000 }),
+    mk('m_large_franchise', 'large_franchise', 'Large franchise', { bakery: 700000, bread: 300000, cakes: 200000, short: 400000 }),
+  ];
+}
+function defaultBench() {
+  return {
+    bakery: { rm: { bakery: 46, bread: 48, cakes: 45, short: 46, hotkitchen: 48, rice: 50, roti: 45, tea: 45, juice: 50, biscuits: 40, buysell: 70, delivery: 50, transfer: 85 },
+      wastage: 3, gaspack: 4, branchExp: 2, ss: 6, oh: 5, bm: 1.5,
+      prod: { bakery: 8, short: 8, hot: 12, rice: 10, roti: 12, tea: 8, juice: 6, cakes: 6, biscuits: 6 },
+      bo: 2.5, comp: 0.5, ho: 2, rmSal: 1 },
+    outlet: { rm: {}, wastage: 3, gaspack: 1, delivery: 1, mgr: 2.5, staff: 6, oh: 4 },
+    restaurant: { rm: 50, gaspack: 4, branchExp: 3, prod: 12, ss: 6, oh: 8 },
+  };
+}
+function defaultConfig(pinHash) {
+  return {
+    v: 1, plan: { start: ymAdd(thisYm(), 1), n: 12 },
+    regions: [], units: [], sections: defaultSections(), cats: defaultCats(), models: defaultModels(),
+    split: { main: 50, large: 30, others: 20 },
+    tax: { corp: 15, ssclRate: 2.5, ssclThreshold: 36000000, ssclShare: 100, vatRate: 18, vatThreshold: 60000000 },
+    bench: defaultBench(), alerts: { amber: 5, red: 10 }, pinHash, budgetId: null,
+  };
+}
+const CFG = () => Store.get('config');
+async function saveCfg(mut) { const c = clone(CFG()); mut(c); await Store.set('config', c); }
+
+// ---------- Structure helpers ----------
+const monthDiff = (a, b) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7));
+const monthRange = (from, n) => Array.from({ length: Math.max(1, n) }, (_, i) => ymAdd(from, i));
+const months = () => monthRange(CFG().plan.start, num(CFG().plan.n) || 12);
+// Months anyone can pick: from 6 months before the plan up to the end of the plan or the budget, whichever is later.
+function selectableMonths() {
+  const c = CFG(), ms = months(), b = currentBudget(), end = [ms[ms.length - 1], b ? b.months[b.months.length - 1] : ms[0], ymAdd(thisYm(), 1)].sort().pop();
+  const start = [ymAdd(c.plan.start, -6), b ? b.months[0] : c.plan.start].sort()[0];
+  return monthRange(start, monthDiff(start, end) + 1);
+}
+const unitById = id => CFG().units.find(u => u.id === id);
+const regionById = id => CFG().regions.find(r => r.id === id);
+const catById = id => CFG().cats.find(c => c.id === id) || { id, name: id, section: '' };
+const secById = id => CFG().sections.find(s => s.id === id) || { id, name: id };
+const isRest = u => u.type === 'restaurant';
+const isProducer = u => ['main', 'large', 'restaurant'].includes(u.type);
+const unitsIn = rid => CFG().units.filter(u => u.regionId === rid);
+const openIn = (u, ym) => (!u.opens || u.opens <= ym) && (!u.closes || u.closes > ym);
+const splitCat = u => u.type === 'main' ? 'main' : u.type === 'large' ? 'large' : u.type === 'franchise' ? null : 'others';
+function supplierOf(u) {
+  if (isProducer(u)) return u.id;
+  if (u.supplier && unitById(u.supplier)) return u.supplier;
+  const m = unitsIn(u.regionId).find(x => x.type === 'main') || unitsIn(u.regionId).find(x => x.type === 'large');
+  return m ? m.id : u.id;
+}
+function scopeUnits(scope) {
+  const c = CFG(); if (!c) return [];
+  if (scope.kind === 'unit') return c.units.filter(u => u.id === scope.id);
+  if (scope.kind === 'region') return c.units.filter(u => u.regionId === scope.id);
+  return c.units.filter(u => regionById(u.regionId));
+}
+function scopeName(scope) {
+  if (scope.kind === 'unit') { const u = unitById(scope.id); return u ? u.name : '—'; }
+  if (scope.kind === 'region') { const r = regionById(scope.id); return r ? `${r.name} (overall)` : '—'; }
+  return 'Salgado Group (all)';
+}
+const scopeAllRest = scope => { const us = scopeUnits(scope); return us.length > 0 && us.every(isRest); };
+
+// =====================================================================
+// Line definitions
+// =====================================================================
+// L (one unit-month P&L) fields: sales, salesC{cat}, rm, rmC{cat}, gp, wastage, gaspack, branchExp (incl. capex, maint),
+// capex, maint, gc, prodS{sec}, chef, prod (sections + chef), ss, oh, bm, nc, bo, comp, ho, rmSal, back, pbt, tax, np, secSales{sec}
+const COST_KEYS = ['rm', 'wastage', 'gaspack', 'branchExp', 'capex', 'maint', 'prod', 'chef', 'ss', 'oh', 'bm', 'ohbm', 'borm', 'bo', 'comp', 'ho', 'rmSal', 'back', 'tax'];
+const isCostKey = k => COST_KEYS.includes(k) || k.startsWith('rmC.') || k.startsWith('prodS.');
+function blankL() { return { sales: 0, salesC: {}, rm: 0, rmC: {}, gp: 0, wastage: 0, gaspack: 0, branchExp: 0, capex: 0, maint: 0, gc: 0, prodS: {}, chef: 0, prod: 0, ss: 0, oh: 0, bm: 0, nc: 0, bo: 0, comp: 0, ho: 0, rmSal: 0, back: 0, pbt: 0, tax: 0, np: 0, secSales: {}, n: 0 }; }
+function finalize(L, u) {
+  L.sales = sum(Object.values(L.salesC)); L.rm = sum(Object.values(L.rmC));
+  L.secSales = {}; for (const [c, v] of Object.entries(L.salesC)) { const s = catById(c).section; if (s) L.secSales[s] = (L.secSales[s] || 0) + v; }
+  L.gp = L.sales - L.rm; L.gc = L.gp - L.wastage - L.gaspack - L.branchExp;
+  L.prod = sum(Object.values(L.prodS)) + L.chef;
+  L.nc = L.gc - L.prod - L.ss - L.oh - L.bm; L.back = L.bo + L.comp + L.ho + L.rmSal; L.pbt = L.nc - L.back;
+  L.tax = u ? Math.max(0, L.pbt) * num(CFG().tax.corp) / 100 : L.tax; L.np = L.pbt - L.tax; L.n = 1;
+  return L;
+}
+function sumL(list) {
+  const T = blankL(); T.n = 0;
+  for (const L of list) {
+    if (!L) continue; T.n += L.n || 1;
+    for (const [k, v] of Object.entries(L)) {
+      if (typeof v === 'number') { if (k !== 'n') T[k] += v; }
+      else if (v && typeof v === 'object' && !Array.isArray(v)) { T[k] = T[k] || {}; for (const [kk, vv] of Object.entries(v)) if (typeof vv === 'number') T[k][kk] = (T[k][kk] || 0) + vv; }
+    }
+  }
+  return T;
+}
+function getV(L, k) {
+  if (!L) return null;
+  if (k === 'ohbm') return L.oh + L.bm;
+  if (k === 'borm') return L.bo + L.rmSal;
+  if (k.includes('.')) { const [a, b] = k.split('.'); return (L[a] || {})[b] || 0; }
+  return L[k];
+}
+function lineLabel(k) {
+  const M = { sales: 'Sales', rm: 'Raw material cost', gp: 'Gross profit', wastage: 'Wastage', gaspack: 'Gas & packing', branchExp: 'Branch expenses', capex: 'of which Capex', maint: 'of which Maintenance',
+    gc: 'Gross contribution', prod: 'Production staff', chef: 'of which Chef', ss: 'Sales & service staff', oh: 'Branch overheads', bm: 'Branch manager', ohbm: 'Branch overheads', borm: 'Back office staff', nc: 'Net contribution',
+    bo: 'Back office staff', comp: 'Compliance cost', ho: 'HO fees', rmSal: 'Regional manager salary', back: 'Back office cost', pbt: 'Profit before tax', tax: 'Corporate tax', np: 'Net profit' };
+  if (k.startsWith('salesC.')) return catById(k.slice(7)).name;
+  if (k.startsWith('rmC.')) return catById(k.slice(4)).name;
+  if (k.startsWith('prodS.')) return secById(k.slice(6)).name;
+  return M[k] || k;
+}
+// The P&L rows to show. opts: { rest (all restaurants), staff (staff view), cats (show sales by category), L (to pick sub-rows) }
+function plRows(opts = {}) {
+  const R = [], L = opts.L || blankL();
+  const add = (k, t = '', extra = {}) => R.push({ k, t, ...extra });
+  add('sales', 'total');
+  if (opts.cats) Object.keys(L.salesC).filter(c => L.salesC[c]).forEach(c => add('salesC.' + c, 'sub'));
+  add('rm'); add('gp', 'total'); add('wastage'); add('gaspack'); add('branchExp');
+  if (!opts.staff) { if (L.capex) add('capex', 'sub'); if (L.maint) add('maint', 'sub'); }
+  add('gc', 'total'); add('prod');
+  if (!opts.staff) { Object.keys(L.prodS).filter(s => L.prodS[s]).forEach(s => add('prodS.' + s, 'sub')); if (L.chef) add('chef', 'sub'); }
+  add('ss');
+  if (opts.staff) add('ohbm'); else { add('oh'); add('bm'); }
+  if (!opts.rest) add('nc', 'total');
+  if (opts.staff) { add('borm'); add('comp'); add('ho'); } else { add('bo'); add('comp'); add('ho'); add('rmSal'); }
+  add('pbt', 'total'); add('tax'); add('np', 'total');
+  return R;
+}
+// Ratios: line / sales (sections: / that section's sales; categories: RM / category sales)
+function ratioRows(L, opts = {}) {
+  const R = [];
+  const r = (k, label, v, base) => R.push({ k, label, v: base ? v / base : null });
+  if (!L) return R;
+  const S = L.sales;
+  r('rm', 'Raw material cost', L.rm, S);
+  Object.keys(L.salesC).filter(c => L.salesC[c]).forEach(c => r('rmC.' + c, '  RM · ' + catById(c).name, L.rmC[c] || 0, L.salesC[c]));
+  r('gp', 'Gross profit', L.gp, S); r('wastage', 'Wastage', L.wastage, S); r('gaspack', 'Gas & packing', L.gaspack, S); r('branchExp', 'Branch expenses', L.branchExp, S);
+  r('gc', 'Gross contribution', L.gc, S); r('prod', 'Production staff', L.prod, S);
+  Object.keys(L.prodS).filter(s => L.prodS[s]).forEach(s => r('prodS.' + s, '  Production · ' + secById(s).name + ' (of its sales)', L.prodS[s], L.secSales[s] || 0));
+  r('ss', 'Sales & service staff', L.ss, S);
+  if (opts.staff) r('ohbm', 'Branch overheads', L.oh + L.bm, S); else { r('oh', 'Branch overheads', L.oh, S); r('bm', 'Branch manager', L.bm, S); }
+  if (!opts.rest) r('nc', 'Net contribution', L.nc, S);
+  r('back', 'Back office cost', L.back, S); r('pbt', 'Profit before tax', L.pbt, S); r('np', 'Net profit', L.np, S);
+  return R;
+}
+
+// =====================================================================
+// Engine: base, plan, actuals, benchmark and budget P&Ls (memoised per data revision)
+// =====================================================================
+const Engine = {
+  memo: new Map(),
+  clear() { this.memo.clear(); },
+  m(key, fn) { if (this.memo.has(key)) return this.memo.get(key); const v = fn(); this.memo.set(key, v); return v; },
+};
+const BASE_LINES = ['wastage', 'gaspack', 'branchExp', 'ss', 'oh', 'bm', 'chef', 'bo', 'comp', 'ho', 'rmSal'];
+const REG_LINES = ['bo', 'comp', 'ho', 'rmSal'];
+
+function baseOf(u) {
+  const b = Store.get('base:' + u.id) || {};
+  return { sales: b.sales || {}, rm: b.rm || {}, prod: b.prod || {}, ...Object.fromEntries(BASE_LINES.map(k => [k, num(b[k])])) };
+}
+const baseSales = u => sum(u.cats.map(c => num(baseOf(u).sales[c])));
+// Base figures as shares of sales: what "today" looks like.
+function basePct(u) {
+  return Engine.m('bp:' + u.id, () => {
+    const b = baseOf(u), S = baseSales(u), o = {};
+    BASE_LINES.forEach(k => { o[k] = S ? b[k] / S : 0; });
+    o.rm = {}; u.cats.forEach(c => { const s = num(b.sales[c]); o.rm[c] = s ? num(b.rm[c]) / s * 100 : defaultRmPct(u, c); });
+    return o;
+  });
+}
+function defaultRmPct(u, c) { const B = CFG().bench; if (isRest(u)) return num(B.restaurant.rm) || 50; return isNum(B.bakery.rm[c]) ? +B.bakery.rm[c] : 50; }
+function baseRegion(rid) { const b = Store.get('baseR:' + rid) || {}; return Object.fromEntries(REG_LINES.map(k => [k, num(b[k])])); }
+function baseRegionPct(rid) {
+  return Engine.m('brp:' + rid, () => {
+    const S = sum(unitsIn(rid).filter(u => !u.planned).map(baseSales)), b = baseRegion(rid);
+    return Object.fromEntries(REG_LINES.map(k => [k, S ? b[k] / S : 0]));
+  });
+}
+// Base P&L ("today"), per unit, with regional costs shared out.
+function baseRegionPL(rid) {
+  return Engine.m('bpl:' + rid, () => {
+    const out = {}, us = unitsIn(rid).filter(u => !u.planned);
+    for (const u of us) {
+      const b = baseOf(u), L = blankL();
+      u.cats.forEach(c => { L.salesC[c] = num(b.sales[c]); L.rmC[c] = num(b.rm[c]); });
+      ['wastage', 'gaspack', 'branchExp', 'ss', 'oh', 'bm', 'chef'].forEach(k => { L[k] = b[k]; });
+      if (isRest(u)) REG_LINES.forEach(k => { L[k] = b[k]; });
+      out[u.id] = L;
+    }
+    const cost = {}; us.filter(isProducer).forEach(p => { cost[p.id] = {}; Object.entries(baseOf(p).prod).forEach(([s, x]) => { cost[p.id][s] = num(x.heads) * num(x.salary); }); });
+    allocateProd(us, out, cost);
+    if (!isRestRegion(rid)) distributeRegional(us, out, baseRegion(rid));
+    us.forEach(u => finalize(out[u.id], u));
+    return out;
+  });
+}
+const isRestRegion = rid => { const r = regionById(rid); return !!r && r.kind === 'restaurants'; };
+
+// Production staff cost of each producer's section, shared by the sales of that section's items in the units it supplies.
+function allocateProd(us, out, cost) {
+  for (const [pid, secs] of Object.entries(cost)) {
+    for (const [s, amt] of Object.entries(secs)) {
+      if (!amt) continue;
+      const rec = us.filter(u => supplierOf(u) === pid && out[u.id]);
+      const share = rec.map(u => sum(Object.entries(out[u.id].salesC).filter(([c]) => catById(c).section === s).map(([, v]) => v)));
+      const tot = sum(share);
+      if (!tot) { if (out[pid]) out[pid].prodS[s] = (out[pid].prodS[s] || 0) + amt; continue; }
+      rec.forEach((u, i) => { if (share[i]) out[u.id].prodS[s] = (out[u.id].prodS[s] || 0) + amt * share[i] / tot; });
+    }
+  }
+}
+// Regional costs: % to main branch / large branches / others, equal within each group. Franchises carry none.
+function regionalWeights(us) {
+  const sp = CFG().split, groups = { main: [], large: [], others: [] };
+  us.forEach(u => { const g = splitCat(u); if (g) groups[g].push(u); });
+  const present = Object.keys(groups).filter(g => groups[g].length);
+  const tw = sum(present.map(g => num(sp[g])));
+  const w = {}; present.forEach(g => groups[g].forEach(u => { w[u.id] = tw ? num(sp[g]) / tw / groups[g].length : 1 / present.length / groups[g].length; }));
+  return w;
+}
+function distributeRegional(us, out, totals) {
+  const w = regionalWeights(us.filter(u => out[u.id]));
+  for (const [id, x] of Object.entries(w)) REG_LINES.forEach(k => { out[id][k] = (out[id][k] || 0) + num(totals[k]) * x; });
+}
+
+// ---------- Plan ----------
+const planRec = u => (Store.get('plan:' + u.id) || { m: {} }).m;
+const planRegRec = rid => (Store.get('planR:' + rid) || { m: {} }).m;
+// Effective inputs for one unit-month: sales and RM% default to the previous month (actual if entered), cost levers carry forward.
+function planInputs(u, ym) {
+  return Engine.m(`pi:${u.id}:${ym}`, () => {
+    const i = monthDiff(CFG().plan.start, ym), p = planRec(u)[ym] || {}, bp = basePct(u), b = baseOf(u);
+    const prevYm = ymAdd(ym, -1);
+    let prevS = null, prevR = null, prevFrom = 'base';
+    const act = (!u.opens || u.opens < ym) ? actualUnit(u, prevYm) : null;
+    if (act && act.hasSales) { prevS = act.v.sales || {}; prevR = {}; u.cats.forEach(c => { const s = num(prevS[c]); prevR[c] = s && isNum((act.v.rm || {})[c]) ? num(act.v.rm[c]) / s * 100 : null; }); prevFrom = 'actual'; }
+    let prevPI = null;
+    if (i > 0 && (!u.opens || u.opens < ym)) prevPI = planInputs(u, prevYm);
+    if (!prevS) { if (prevPI) { prevS = prevPI.salesC; prevR = prevPI.rmPct; prevFrom = 'plan'; } else { prevS = b.sales; prevR = bp.rm; } }
+    const o = { salesC: {}, rmPct: {}, adj: {}, heads: {}, salary: {}, capex: num(p.capex), maint: num(p.maint), ovr: {}, prevFrom, prevS, prevR };
+    for (const c of u.cats) {
+      o.salesC[c] = isNum((p.sales || {})[c]) ? +p.sales[c] : num(prevS[c]);
+      if (isNum((p.sales || {})[c])) o.ovr['sales.' + c] = true;
+      const pr = isNum(prevR[c]) ? +prevR[c] : (prevPI ? prevPI.rmPct[c] : bp.rm[c]);
+      o.rmPct[c] = isNum((p.rmPct || {})[c]) ? +p.rmPct[c] : (isNum(pr) ? +pr : bp.rm[c]);
+      if (isNum((p.rmPct || {})[c])) o.ovr['rm.' + c] = true;
+    }
+    for (const k of BASE_LINES) { o.adj[k] = isNum((p.adj || {})[k]) ? +p.adj[k] : prevPI ? prevPI.adj[k] : 0; if (isNum((p.adj || {})[k])) o.ovr['adj.' + k] = true; }
+    for (const [s, x] of Object.entries(b.prod)) {
+      o.heads[s] = isNum((p.heads || {})[s]) ? +p.heads[s] : prevPI ? prevPI.heads[s] : num(x.heads);
+      o.salary[s] = isNum((p.salary || {})[s]) ? +p.salary[s] : prevPI ? prevPI.salary[s] : num(x.salary);
+    }
+    return o;
+  });
+}
+function regionPlanInputs(rid, ym) {
+  return Engine.m(`rpi:${rid}:${ym}`, () => {
+    const i = monthDiff(CFG().plan.start, ym), p = planRegRec(rid)[ym] || {}, prev = i > 0 ? regionPlanInputs(rid, ymAdd(ym, -1)) : null, o = { adj: {}, ovr: {} };
+    REG_LINES.forEach(k => { o.adj[k] = isNum((p.adj || {})[k]) ? +p.adj[k] : prev ? prev.adj[k] : 0; if (isNum((p.adj || {})[k])) o.ovr[k] = true; });
+    return o;
+  });
+}
+function regionPlan(rid, ym) {
+  return Engine.m(`rp:${rid}:${ym}`, () => {
+    const out = {}, us = unitsIn(rid).filter(u => openIn(u, ym)), cost = {};
+    for (const u of us) {
+      const pi = planInputs(u, ym), bp = basePct(u), L = blankL();
+      u.cats.forEach(c => { L.salesC[c] = Math.max(0, pi.salesC[c]); L.rmC[c] = L.salesC[c] * pi.rmPct[c] / 100; });
+      const S = sum(Object.values(L.salesC)), f = k => Math.max(0, S * (bp[k] + pi.adj[k] / 100));
+      ['wastage', 'gaspack', 'ss', 'oh', 'bm', 'chef'].forEach(k => { L[k] = f(k); });
+      L.capex = pi.capex; L.maint = pi.maint; L.branchExp = f('branchExp') + pi.capex + pi.maint;
+      if (isRest(u)) REG_LINES.forEach(k => { L[k] = f(k); });
+      if (isProducer(u)) { cost[u.id] = {}; Object.keys(pi.heads).forEach(s => { cost[u.id][s] = num(pi.heads[s]) * num(pi.salary[s]); }); }
+      out[u.id] = L;
+    }
+    allocateProd(us, out, cost);
+    if (!isRestRegion(rid)) {
+      const R = sum(us.map(u => sum(Object.values(out[u.id].salesC)))), bp = baseRegionPct(rid), ri = regionPlanInputs(rid, ym);
+      distributeRegional(us, out, Object.fromEntries(REG_LINES.map(k => [k, Math.max(0, R * (bp[k] + ri.adj[k] / 100))])));
+    }
+    us.forEach(u => finalize(out[u.id], u));
+    return out;
+  });
+}
+
+// ---------- Actuals ----------
+// Records: act:<unitId>:m:<ym> / act:<unitId>:w:<monday>  and  actR:<regionId>:m:<ym> / :w:<monday>
+// value: { v: {sales{cat}, rm{cat}, wastage, gaspack, branchExp, capex, maint, prod{sec}, chef, ss, oh, bm, bo, comp, ho, rmSal}, at, submitted }
+function hasAny(v) { return !!v && Object.values(v).some(x => (x && typeof x === 'object') ? Object.values(x).some(isNum) : isNum(x)); }
+function resolveActual(prefix, ym) {
+  return Engine.m('ra:' + prefix + ':' + ym, () => {
+    const m = Store.get(`${prefix}:m:${ym}`);
+    if (m && hasAny(m.v)) return { v: m.v, src: 'month', submitted: !!m.submitted, hasSales: hasAny(m.v.sales) };
+    const weeks = Store.keys(`${prefix}:w:`).map(k => ({ ws: k.slice(prefix.length + 3), rec: Store.get(k) })).filter(w => w.rec && hasAny(w.rec.v) && overlapDays(w.ws, ym) > 0);
+    if (!weeks.length) return null;
+    const covered = sum(weeks.map(w => overlapDays(w.ws, ym))), D = dim(ym), v = {};
+    for (const w of weeks) {
+      const f = overlapDays(w.ws, ym) / 7 * D / covered;
+      for (const [k, x] of Object.entries(w.rec.v)) {
+        if (x && typeof x === 'object') { v[k] = v[k] || {}; for (const [kk, xx] of Object.entries(x)) if (isNum(xx)) v[k][kk] = (v[k][kk] || 0) + xx * f; }
+        else if (isNum(x)) v[k] = (v[k] || 0) + x * f;
+      }
+    }
+    return { v, src: 'weekly', covered, days: D, weeks: weeks.length, submitted: !!(m && m.submitted), hasSales: hasAny(v.sales) };
+  });
+}
+const actualUnit = (u, ym) => resolveActual('act:' + u.id, ym);
+const actualRegion = (rid, ym) => resolveActual('actR:' + rid, ym);
+function regionActual(rid, ym) {
+  return Engine.m(`ar:${rid}:${ym}`, () => {
+    const out = {}, meta = {}, us = unitsIn(rid).filter(u => openIn(u, ym)), cost = {};
+    for (const u of us) {
+      const a = actualUnit(u, ym); if (!a) { meta[u.id] = { src: 'none' }; continue; }
+      const v = a.v, L = blankL(), missing = [];
+      u.cats.forEach(c => { L.salesC[c] = num((v.sales || {})[c]); L.rmC[c] = num((v.rm || {})[c]); if (num((v.sales || {})[c]) && !isNum((v.rm || {})[c])) missing.push('RM · ' + catById(c).name); });
+      const lines = ['wastage', 'gaspack', 'ss', 'oh', 'bm'].concat(isRest(u) ? ['chef', ...REG_LINES] : []);
+      lines.forEach(k => { L[k] = num(v[k]); if (!isNum(v[k])) missing.push(lineLabel(k)); });
+      L.capex = num(v.capex); L.maint = num(v.maint); L.branchExp = num(v.branchExp) + L.capex + L.maint; if (!isNum(v.branchExp)) missing.push('Branch expenses');
+      if (isProducer(u)) { cost[u.id] = {}; Object.keys(baseOf(u).prod).forEach(s => { cost[u.id][s] = num((v.prod || {})[s]); if (!isNum((v.prod || {})[s])) missing.push('Production staff · ' + secById(s).name); }); }
+      out[u.id] = L; meta[u.id] = { src: a.src, covered: a.covered, days: a.days, submitted: a.submitted, missing };
+    }
+    allocateProd(us, out, cost);
+    let reg = null;
+    if (!isRestRegion(rid)) { reg = actualRegion(rid, ym); if (reg) distributeRegional(us, out, reg.v); }
+    Object.keys(out).forEach(id => finalize(out[id], unitById(id)));
+    return { out, meta, reg };
+  });
+}
+// Benchmark P&L: actual sales with the benchmark ratios applied.
+function regionBench(rid, ym, src = 'actual') {
+  return Engine.m(`bk:${rid}:${ym}:${src}`, () => {
+    const B = CFG().bench, out = {};
+    const srcOut = src === 'actual' ? regionActual(rid, ym).out : Object.fromEntries(unitsIn(rid).map(u => [u.id, unitL(u, ym, src)]).filter(x => x[1]));
+    for (const [id, AL] of Object.entries(srcOut)) {
+      const u = unitById(id), L = blankL(), S = sum(Object.values(AL.salesC));
+      Object.assign(L.salesC, AL.salesC);
+      if (isRest(u)) {
+        const R = B.restaurant; u.cats.forEach(c => { L.rmC[c] = L.salesC[c] * num(R.rm) / 100; });
+        L.gaspack = S * num(R.gaspack) / 100; L.branchExp = S * num(R.branchExp) / 100; L.prodS = { all: S * num(R.prod) / 100 }; L.ss = S * num(R.ss) / 100; L.oh = S * num(R.oh) / 100;
+        L.wastage = AL.wastage; L.bm = AL.bm; REG_LINES.forEach(k => { L[k] = AL[k]; });
+      } else {
+        const K = B.bakery, O = B.outlet, outlet = u.type === 'outlet' || u.type === 'franchise';
+        u.cats.forEach(c => { const r = outlet && isNum(O.rm[c]) ? +O.rm[c] : isNum(K.rm[c]) ? +K.rm[c] : 50; L.rmC[c] = L.salesC[c] * r / 100; });
+        if (outlet) { L.wastage = S * num(O.wastage) / 100; L.gaspack = S * num(O.gaspack) / 100; L.branchExp = S * num(O.delivery) / 100; L.ss = S * num(O.staff) / 100; L.oh = S * num(O.oh) / 100; L.bm = S * num(O.mgr) / 100; }
+        else { L.wastage = S * num(K.wastage) / 100; L.gaspack = S * num(K.gaspack) / 100; L.branchExp = S * num(K.branchExp) / 100; L.ss = S * num(K.ss) / 100; L.oh = S * num(K.oh) / 100; L.bm = S * num(K.bm) / 100; }
+        for (const [s, v] of Object.entries(AL.secSales)) if (isNum(K.prod[s])) L.prodS[s] = v * K.prod[s] / 100;
+      }
+      out[id] = L;
+    }
+    if (!isRestRegion(rid)) {
+      const K = CFG().bench.bakery, R = sum(Object.values(out).map(L => sum(Object.values(L.salesC))));
+      distributeRegional(Object.keys(out).map(unitById), out, Object.fromEntries(REG_LINES.map(k => [k, R * num(K[k]) / 100])));
+    }
+    Object.keys(out).forEach(id => finalize(out[id], unitById(id)));
+    return out;
+  });
+}
+
+// ---------- Budget ----------
+const currentBudget = () => { const c = CFG(); return c && c.budgetId ? Store.get('budget:' + c.budgetId) : null; };
+function snapshotBudget(name, ms = months()) {
+  const c = CFG(), data = {}, extras = { staff: [], capex: [], openings: [] };
+  for (const ym of ms) for (const r of c.regions) {
+    const P = regionPlan(r.id, ym);
+    for (const [id, L] of Object.entries(P)) { (data[id] = data[id] || {})[ym] = L; }
+  }
+  for (const u of c.units) for (const ym of ms) {
+    if (!openIn(u, ym)) continue;
+    const pi = planInputs(u, ym), prev = monthDiff(c.plan.start, ym) > 0 && openIn(u, ymAdd(ym, -1)) ? planInputs(u, ymAdd(ym, -1)) : null, b = baseOf(u);
+    for (const s of Object.keys(pi.heads)) { const before = prev ? prev.heads[s] : num((b.prod[s] || {}).heads); const d = num(pi.heads[s]) - num(before); if (d) extras.staff.push({ unit: u.id, ym, sec: s, change: d, salary: pi.salary[s] }); }
+    if (pi.capex || pi.maint) extras.capex.push({ unit: u.id, ym, capex: pi.capex, maint: pi.maint });
+    if (u.opens === ym) extras.openings.push({ unit: u.id, ym });
+  }
+  return { name, approvedAt: new Date().toISOString(), months: ms, data, extras };
+}
+
+// ---------- One entry point for any scope ----------
+// kind: 'plan' | 'actual' | 'bench' | 'budget' | 'base'
+function unitL(u, ym, kind) {
+  if (kind === 'plan') return openIn(u, ym) ? regionPlan(u.regionId, ym)[u.id] || null : null;
+  if (kind === 'actual') return regionActual(u.regionId, ym).out[u.id] || null;
+  if (kind === 'bench') return regionBench(u.regionId, ym)[u.id] || null;
+  if (kind === 'benchB') return regionBench(u.regionId, ym, currentBudget() ? 'budget' : 'plan')[u.id] || null;
+  if (kind === 'base') return baseRegionPL(u.regionId)[u.id] || null;
+  if (kind === 'budget') { const b = currentBudget(); return b && b.data[u.id] ? b.data[u.id][ym] || null : null; }
+  return null;
+}
+function scopeL(scope, ym, kind, only) {
+  const us = scopeUnits(scope).filter(u => !only || only.has(u.id)), list = us.map(u => unitL(u, ym, kind)).filter(Boolean);
+  return list.length ? sumL(list) : null;
+}
+// Several months added together. onlyReported: compare like for like, month by month.
+function scopeLM(scope, ms, kind, onlyReported) {
+  const list = ms.map(m => scopeL(scope, m, kind, onlyReported ? reportedSet(scope, m) : undefined)).filter(Boolean);
+  return list.length ? sumL(list) : null;
+}
+// Distributable cost = production staff + 50% of branch overheads (incl. branch manager) + regional / back office cost.
+const distributable = L => L ? L.prod + 0.5 * (L.oh + L.bm) + L.back : null;
+// Units in a scope that have actual figures for the month (so comparisons are like for like).
+function reportedSet(scope, ym) { return new Set(scopeUnits(scope).filter(u => openIn(u, ym) && (regionActual(u.regionId, ym).meta[u.id] || {}).src && regionActual(u.regionId, ym).meta[u.id].src !== 'none').map(u => u.id)); }
+// Reporting status of actuals for a scope-month: which units are in, estimated from weeks, missing lines.
+function actualMeta(scope, ym) {
+  const us = scopeUnits(scope).filter(u => openIn(u, ym)), rows = [];
+  for (const u of us) { const m = regionActual(u.regionId, ym).meta[u.id] || { src: 'none' }; rows.push({ u, ...m }); }
+  const regions = [...new Set(us.map(u => u.regionId))].filter(rid => !isRestRegion(rid)).map(rid => ({ rid, a: actualRegion(rid, ym) }));
+  return { rows, regions, none: rows.every(r => r.src === 'none'), weekly: rows.filter(r => r.src === 'weekly'), missingUnits: rows.filter(r => r.src === 'none'), missingLines: rows.filter(r => r.missing && r.missing.length), regMissing: regions.filter(x => !x.a) };
+}
+
+// ---------- What-if (scenario) on a set of unit P&Ls ----------
+// w: { salesPct, rmPts{cat|'_all'}, prodPct, wastagePts, backPct }
+const whatIfActive = w => !!w && (num(w.salesPct) || num(w.prodPct) || num(w.wastagePts) || num(w.backPct) || Object.values(w.rmPts || {}).some(x => num(x)));
+function applyWhatIf(L, u, w) {
+  if (!L) return L;
+  const X = clone(L), f = 1 + num(w.salesPct) / 100;
+  for (const c of Object.keys(X.salesC)) {
+    const rp = L.salesC[c] ? L.rmC[c] / L.salesC[c] : 0, add = (num((w.rmPts || {})[c]) + num((w.rmPts || {})._all)) / 100;
+    X.salesC[c] = L.salesC[c] * f; X.rmC[c] = X.salesC[c] * Math.max(0, rp + add);
+  }
+  const S0 = L.sales, S1 = S0 * f;
+  X.wastage = S0 ? Math.max(0, (L.wastage / S0 + num(w.wastagePts) / 100) * S1) : L.wastage;
+  X.gaspack = L.gaspack * f;
+  for (const s of Object.keys(X.prodS)) X.prodS[s] = L.prodS[s] * (1 + num(w.prodPct) / 100);
+  X.chef = L.chef * (1 + num(w.prodPct) / 100);
+  REG_LINES.forEach(k => { X[k] = L[k] * (1 + num(w.backPct) / 100); });
+  return finalize(X, u);
+}
+function scopeWhatIf(scope, ym, kind, w) {
+  const list = scopeUnits(scope).map(u => applyWhatIf(unitL(u, ym, kind), u, w)).filter(Boolean);
+  return list.length ? sumL(list) : null;
+}
+
+// ---------- Variance status ----------
+function varianceOf(k, b, a) {
+  if (b == null || a == null) return null;
+  const diff = a - b, good = isCostKey(k) ? -diff : diff, p = b ? diff / Math.abs(b) : null;
+  return { diff, good, pct: p };
+}
+function statusOf(v, tol = 0.5) {
+  if (!v) return 'none';
+  const al = CFG().alerts, p = v.pct == null ? 0 : Math.abs(v.pct) * 100;
+  if (v.good >= -tol || p < num(al.amber) - 1e-9) return 'good';
+  return p < num(al.red) - 1e-9 ? 'amber' : 'red';
+}
+const statusPill = st => st === 'none' ? '<span class="pill">—</span>' : `<span class="pill ${st === 'good' ? 'good' : st === 'amber' ? 'warn' : 'bad'}">${st === 'good' ? 'On track' : st === 'amber' ? 'Watch' : 'Act'}</span>`;
+'use strict';
+/* =====================================================================
+   Minimal Excel (.xlsx) writer: no library needed. sheets = [{ name, rows: [[cell, ...], ...], widths? }]
+   A cell is a number, a string, null, or { v, bold, pct, money }.
+   ===================================================================== */
+const XLSX = (() => {
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const enc = s => new TextEncoder().encode(s);
+  function zip(files) { // STORE (no compression): every spreadsheet program reads it
+    const parts = [], central = []; let off = 0;
+    for (const f of files) {
+      const name = enc(f.name), data = enc(f.data), crc = crc32(data), h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(h.buffer), name, data);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+      central.push(new Uint8Array(c.buffer), name);
+      off += 30 + name.length + data.length;
+    }
+    const csize = central.reduce((a, x) => a + x.length, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, csize, true); e.setUint32(16, off, true);
+    return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  const x = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const col = n => { let s = ''; n++; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  // styles: 0 normal, 1 bold, 2 #,##0, 3 bold #,##0, 4 0.0%, 5 bold 0.0%, 6 bold green header
+  const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0%"/></numFmts>
+<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B5D3B"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="3" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  function sheetXml(sh) {
+    const rows = sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((c, ci) => {
+      if (c == null || c === '') return '';
+      const o = typeof c === 'object' ? c : { v: c }, ref = col(ci) + (ri + 1);
+      if (typeof o.v === 'number' && isFinite(o.v)) { const s = o.pct ? (o.bold ? 5 : 4) : (o.bold ? 3 : 2); return `<c r="${ref}" s="${s}"><v>${o.pct ? o.v : Math.round(o.v * 100) / 100}</v></c>`; }
+      const s = o.head ? 6 : o.bold ? 1 : 0; return `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${x(o.v)}</t></is></c>`;
+    }).join('')}</row>`).join('');
+    const nCols = Math.max(1, ...sh.rows.map(r => r.length));
+    const widths = Array.from({ length: nCols }, (_, i) => (sh.widths && sh.widths[i]) || (i === 0 ? 34 : 14));
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData></worksheet>`;
+  }
+  function build(sheets) {
+    const used = new Set();
+    sheets = sheets.filter(s => s.rows && s.rows.length).map((s, i) => { let n = String(s.name || 'Sheet' + (i + 1)).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31).trim() || 'Sheet' + (i + 1); let k = n, j = 2; while (used.has(k.toLowerCase())) k = n.slice(0, 28) + ' ' + j++; used.add(k.toLowerCase()); return { ...s, name: k }; });
+    if (!sheets.length) sheets = [{ name: 'Sheet1', rows: [['No figures']] }];
+    const files = [
+      { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
+      { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+      { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s, i) => `<sheet name="${x(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
+      { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+      { name: 'xl/styles.xml', data: STYLES },
+      ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s) })),
+    ];
+    return zip(files);
+  }
+  function download(filename, sheets) {
+    const blob = build(sheets), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = filename.replace(/[\\/:*?"<>|]/g, '-') + '.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }
+  return { build, download };
+})();
+'use strict';
+/* =====================================================================
+   Salgado Budget Planner · shell, menu, header, PIN, overview, planner, decisions
+   ===================================================================== */
+const ui = {
+  scope: { kind: 'group' }, tab: 'overview', ym: null, setup: null, menu: false, unlockUntil: 0, staffView: false,
+  wiB: {}, wiA: {}, planToday: false, planDaily: false, varRep: 1, varSep: false, actType: 'month', actPeriod: null,
+  decTab: 'pending', openTask: null, baseSel: null, showCats: false, menuRegion: null, setupOpen: false,
+  per: {}, // period pickers: bud {from, n}; wi / var {from, to}
+};
+// Period pickers: "from + number of months" (planner, budget) or "from + to" (what-if, variance).
+function perGet(key) {
+  const p = ui.per[key], ms = selectableMonths();
+  if (key === 'bud') { const b = currentBudget(); const d = b ? { from: b.months[0], n: b.months.length } : { from: CFG().plan.start, n: num(CFG().plan.n) || 12 }; return p || d; }
+  return p || { from: ui.ym, to: ui.ym };
+}
+function perMonths(key) { const p = perGet(key); if (p.n != null) return monthRange(p.from, p.n); const a = p.from <= p.to ? p.from : p.to, b = p.from <= p.to ? p.to : p.from; return monthRange(a, monthDiff(a, b) + 1); }
+const perLabel = key => { const ms = perMonths(key); return ms.length === 1 ? monthLabel(ms[0]) : `${monthLabel(ms[0])} – ${monthLabel(ms[ms.length - 1])}`; };
+function perPicker(key, label) {
+  const p = perGet(key), opts = v => selectableMonths().map(m => `<option value="${m}"${m === v ? ' selected' : ''}>${monthLabel(m)}</option>`).join('');
+  return `<div class="lv-h">${esc(label)}</div><div class="btns" style="gap:6px"><label class="note">From <select id="per-${key}-from" data-ch="per" data-key="${key}" data-f="from">${opts(p.from)}</select></label>
+    ${p.n != null ? `<label class="note">for <select id="per-${key}-n" data-ch="per" data-key="${key}" data-f="n">${Array.from({ length: 24 }, (_, i) => i + 1).map(n => `<option value="${n}"${n === p.n ? ' selected' : ''}>${n} month${n > 1 ? 's' : ''}</option>`).join('')}</select></label>`
+      : `<label class="note">to <select id="per-${key}-to" data-ch="per" data-key="${key}" data-f="to">${opts(p.to)}</select></label>`}</div>`;
+}
+const TABS = [['overview', 'Overview'], ['planner', 'Monthly planner'], ['decisions', 'Decisions & actions'], ['budgets', 'Budgets'], ['actuals', 'Actuals'], ['variance', 'Variance analysis'],
+  ['incentives', 'Incentives & bonuses', 'Phase 2'], ['incscen', 'Scenarios for incentives', 'Phase 2'], ['taskeff', 'Task efficiency', 'Phase 2'], ['vat', 'VAT readiness', 'later']];
+const SETUP = [['structure', 'Group structure'], ['models', 'New outlet models'], ['split', 'Regional cost distribution'], ['tax', 'Tax'], ['bench', 'Benchmark ratios & categories'], ['base', 'Base figures (today)'], ['settings', 'Settings, backup & PIN']];
+
+const isUnlocked = () => Date.now() < ui.unlockUntil;
+function askPin(reason) {
+  return new Promise(resolve => {
+    const back = document.createElement('div'); back.className = 'modal-back';
+    back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Director PIN"><h2>Director PIN</h2><p class="note">${esc(reason || 'Enter the PIN to unlock.')}</p>
+      <input type="password" inputmode="numeric" id="pin-in" autocomplete="off" aria-label="PIN"><p class="note" id="pin-err" style="color:var(--bad)"></p>
+      <div class="btns"><button class="btn primary" id="pin-ok">Unlock</button><button class="btn" id="pin-cancel">Cancel</button></div></div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('#pin-in'); inp.focus();
+    const done = ok => { back.remove(); resolve(ok); };
+    const tryIt = async () => {
+      if (await sha256(PIN_SALT + inp.value) === CFG().pinHash) { ui.unlockUntil = Date.now() + 15 * 60 * 1000; done(true); render(); toast('Unlocked for 15 minutes.'); }
+      else { back.querySelector('#pin-err').textContent = 'Wrong PIN.'; inp.select(); }
+    };
+    back.querySelector('#pin-ok').onclick = tryIt; back.querySelector('#pin-cancel').onclick = () => done(false);
+    inp.onkeydown = e => { if (e.key === 'Enter') tryIt(); if (e.key === 'Escape') done(false); };
+  });
+}
+async function needUnlock(reason) { return isUnlocked() || askPin(reason); }
+
+// ---------- Rendering ----------
+function render() {
+  const app = $('#app'); if (!app) return;
+  if (Store.mode === 'remote' && !Store.session) { app.innerHTML = loginHtml(); return; }
+  if (!CFG()) { app.innerHTML = '<p style="padding:20px">Loading…</p>'; return; }
+  const ms = months(), selM = selectableMonths(); if (!ui.ym || !selM.includes(ui.ym)) ui.ym = ms.includes(thisYm()) ? thisYm() : ms[0];
+  if (ui.scope.kind !== 'group' && !(ui.scope.kind === 'unit' ? unitById(ui.scope.id) : regionById(ui.scope.id))) ui.scope = { kind: 'group' };
+  const act = document.activeElement, focusId = act && act.id, sel = act && act.selectionStart != null ? [act.selectionStart, act.selectionEnd] : null;
+  const y = window.scrollY;
+  let body;
+  if (ui.setup) body = `<main class="shell full"><section>${setupHtml()}</section></main>`;
+  else {
+    const v = VIEWS[ui.tab] || VIEWS.placeholder, lev = v.levers ? v.levers() : null;
+    body = `<main class="shell${lev == null ? ' full' : ''}">${lev == null ? '' : `<aside class="card levers" aria-label="Levers">${lev}</aside>`}<section id="main">${v.main()}</section></main>`;
+  }
+  app.innerHTML = headerHtml() + body + (ui.menu ? menuHtml() : '');
+  const mainEl = $('#main'); if (mainEl && !ui.setup) mainEl.insertAdjacentHTML('afterbegin', exportBar());
+  if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); if (sel && el.setSelectionRange) try { el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* ignore */ } } }
+  window.scrollTo(0, y);
+  afterRender.forEach(f => f()); afterRender.length = 0;
+}
+const afterRender = [];
+
+function loginHtml() {
+  return `<div class="login"><div class="card"><h1>Salgado Budget Planner</h1><p class="note">Sign in with the team login.</p>
+    <form id="login-form"><label>Login name<input class="txt" id="lg-user" autocomplete="username" value="FMbudgetplanner"></label>
+    <label>Password<input class="txt" type="password" id="lg-pass" autocomplete="current-password"></label>
+    <p class="note" id="lg-err" style="color:var(--bad)"></p><button class="btn primary" type="submit">Sign in</button></form></div></div>`;
+}
+
+function headerHtml() {
+  const ms = selectableMonths(), sync = Store.mode === 'local' ? '<span class="pill warn" title="Data is saved in this browser only. Host the planner to share it.">Demo mode · this computer only</span>'
+    : `<span><span class="dot ${Store.error ? 'err' : Store.pending ? 'busy' : ''}"></span> ${Store.error ? esc(Store.error) : Store.pending ? 'Saving…' : 'Saved'}</span>`;
+  const title = ui.setup ? 'Set-up · ' + (SETUP.find(s => s[0] === ui.setup) || ['', ''])[1] : scopeName(ui.scope);
+  return `<header class="top"><div class="bar"><h1>Salgado Budget Planner</h1>
+    <button class="menu-btn" data-act="menu" aria-expanded="${ui.menu}">☰ ${esc(title)} ▾</button>
+    ${ui.setup ? '<button class="btn" data-act="leave-setup">← Back to the planner</button>' : `<label class="note">Month <select id="hdr-ym" data-ch="ym">${ms.map(m => `<option value="${m}"${m === ui.ym ? ' selected' : ''}>${monthLabel(m)}</option>`).join('')}</select></label>`}
+    <span class="sync">${sync}<button class="lockbtn${isUnlocked() ? ' open' : ''}" data-act="${isUnlocked() ? 'lock' : 'unlock'}">${isUnlocked() ? '🔓 Unlocked · lock now' : '🔒 Locked'}</button>${Store.mode === 'remote' ? '<button class="btn sm" data-act="signout">Sign out</button>' : ''}</span></div>
+    ${ui.setup ? '' : kpiHtml() + `<nav class="tabs" role="tablist">${TABS.map(([id, l, later]) => `<button role="tab" data-act="tab" data-id="${id}" aria-selected="${ui.tab === id}">${esc(l)}${later ? `<span class="later">${later}</span>` : ''}</button>`).join('')}</nav>`}</header>`;
+}
+function kpiHtml() {
+  const ym = ui.ym, B = scopeL(ui.scope, ym, 'budget'), A = scopeL(ui.scope, ym, 'actual'), meta = actualMeta(ui.scope, ym), b = currentBudget(), BL = A ? scopeL(ui.scope, ym, 'budget', reportedSet(ui.scope, ym)) : null;
+  const est = meta.weekly.length ? ' · <span class="pill warn">part from weekly</span>' : '';
+  const vs = (k, a, bb) => { if (a == null || bb == null) return ''; const v = varianceOf(k, bb, a); return `<span class="pill ${statusOf(v) === 'good' ? 'good' : statusOf(v) === 'amber' ? 'warn' : 'bad'}">${spct(v.pct)}</span>`; };
+  return `<div class="kpis">
+    <div class="kpi"><div class="lab">Budgeted sales · ${monthLabel(ym)}</div><div class="v">${B ? money(B.sales) : '—'}</div><div class="sub">${b ? esc(b.name) : 'No approved budget yet'}</div></div>
+    <div class="kpi"><div class="lab">Actual sales · ${monthLabel(ym)}</div><div class="v">${A ? money(A.sales) : '—'}</div><div class="sub">${A ? vs('sales', A.sales, BL && BL.sales) + est : 'Nothing entered yet'}</div></div>
+    <div class="kpi"><div class="lab">Budgeted net profit</div><div class="v${B && B.np < 0 ? ' neg' : ''}">${B ? money(B.np) : '—'}</div><div class="sub">${B && B.sales ? pct(B.np / B.sales) + ' of sales' : ''}</div></div>
+    <div class="kpi"><div class="lab">Actual net profit</div><div class="v${A && A.np < 0 ? ' neg' : ''}">${A ? money(A.np) : '—'}</div><div class="sub">${A ? (A.sales ? pct(A.np / A.sales) + ' of sales ' : '') + vs('np', A.np, BL && BL.np) + (meta.missingLines.length || meta.missingUnits.length || meta.regMissing.length ? ' · <span class="pill warn">incomplete</span>' : '') : ''}</div></div></div>`;
+}
+function menuHtml() {
+  const c = CFG(), cur = (k, id) => !ui.setup && ui.scope.kind === k && (k === 'group' || ui.scope.id === id) ? ' cur' : '';
+  const inRegion = r => ui.scope.kind === 'region' ? ui.scope.id === r.id : ui.scope.kind === 'unit' ? (unitById(ui.scope.id) || {}).regionId === r.id : false;
+  const regBtn = r => `<button class="l2${inRegion(r) ? ' cur' : ''}${ui.menuRegion === r.id ? ' open' : ''}" data-act="menu-region" data-id="${r.id}">${esc(r.name)}<span class="arr">▸</span></button>`;
+  const bak = c.regions.filter(r => r.kind !== 'restaurants'), rest = c.regions.filter(r => r.kind === 'restaurants');
+  const open = ui.menuRegion && regionById(ui.menuRegion);
+  const side = open ? `<div class="dd-side" role="menu"><h4>${esc(open.name)}</h4><button class="${cur('region', open.id)}" data-act="scope" data-kind="region" data-id="${open.id}">${open.kind === 'restaurants' ? 'All restaurants' : 'Whole region'} · overall</button>
+    ${unitsIn(open.id).map(u => `<button class="l2${cur('unit', u.id)}" data-act="scope" data-kind="unit" data-id="${u.id}">${esc(u.name)}${u.planned ? ' (new)' : ''}</button>`).join('')}</div>` : '';
+  return `<div class="dd-back" data-act="menu-close"></div><div class="dd" role="menu">
+    <h4>View</h4><button class="${cur('group')}" data-act="scope" data-kind="group">Salgado Group (all)</button>
+    <h4>Regions</h4>${bak.length ? bak.map(regBtn).join('') : '<p class="note" style="padding:0 10px;color:#cfe8dc">No regions yet: add them under Set-up › Group structure.</p>'}
+    <h4>Restaurants</h4>${rest.length ? rest.map(regBtn).join('') : '<p class="note" style="padding:0 10px;color:#cfe8dc">No restaurant cluster yet.</p>'}
+    <details ${ui.setupOpen || ui.setup ? 'open' : ''} data-setupfold><summary>Set-up</summary>${SETUP.map(([id, l]) => `<button class="l2${ui.setup === id ? ' cur' : ''}" data-act="setup" data-id="${id}">${esc(l)}</button>`).join('')}</details></div>${side}`;
+}
+
+// ---------- Shared pieces ----------
+function plTable(cols, opts = {}) {
+  // cols: [{label, L, cls}] ; opts: {staff, cats, rest, variance:[iBudget,iActual], pctOfSales}
+  const Ls = cols.map(c => c.L).filter(Boolean); if (!Ls.length) return '<p class="note">No figures yet.</p>';
+  const U = sumL(Ls), rows = plRows({ staff: opts.staff, cats: opts.cats, rest: opts.rest, L: U });
+  const vi = opts.variance;
+  return `<div class="tw"><table class="${cols.length + (vi ? 2 : 0) >= 3 ? 'zebra' : ''}"><thead><tr><th>Line</th>${cols.map(c => `<th class="${/^[A-Z][a-z]{2,3} \d{2}/.test(c.label) ? 'dt' : ''}">${esc(c.label)}</th>`).join('')}${vi ? `<th>${opts.noStatus ? 'Difference' : 'Variance'}</th><th>%</th>${opts.noStatus ? '' : '<th>Status</th>'}` : ''}${opts.pctOfSales ? '<th>% of sales</th>' : ''}</tr></thead><tbody>
+    ${rows.map(r => {
+      const vals = cols.map(c => c.L ? getV(c.L, r.k) : null);
+      let tail = '';
+      if (vi) { const v = varianceOf(r.k, vals[vi[0]], vals[vi[1]]); tail = v ? `<td class="${v.good < -0.5 ? 'neg' : ''}" data-v="${v.diff}">${money(v.diff)}</td><td data-v="${v.pct == null ? '' : v.pct}" data-pct="1">${v.pct == null ? '—' : spct(v.pct)}</td>${opts.noStatus ? '' : `<td>${r.t === 'sub' ? '' : statusPill(statusOf(v))}</td>`}` : `<td>—</td><td></td>${opts.noStatus ? '' : '<td></td>'}`; }
+      if (opts.pctOfSales) { const L0 = cols[0].L, pv = L0 && L0.sales ? getV(L0, r.k) / L0.sales : null; tail += `<td data-v="${pv == null ? '' : pv}" data-pct="1">${pct(pv)}</td>`; }
+      return `<tr class="${r.t}"><td>${r.t === 'total' ? '' : r.t === 'sub' ? '' : '(−) '}${r.t === 'total' && r.k !== 'sales' ? '= ' : ''}${esc(lineLabel(r.k))}</td>${vals.map(v => `<td${v != null && v < 0 ? ' class="neg"' : ''} data-v="${v == null ? '' : v}">${v == null ? '—' : money(v)}</td>`).join('')}${tail}</tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+function metaNotes(scope, ymOrMonths) {
+  const ms = Array.isArray(ymOrMonths) ? ymOrMonths : [ymOrMonths], multi = ms.length > 1, out = [];
+  let none = 0;
+  for (const ym of ms) {
+    const m = actualMeta(scope, ym), pre = multi ? `<b>${monthLabel(ym)}</b>: ` : '';
+    if (m.none) { none++; if (multi) out.push(pre + 'no actual figures yet.'); continue; }
+    if (m.weekly.length) out.push(pre + `estimated from weekly figures (scaled to the full month): ${m.weekly.map(r => `${esc(r.u.name)} (${r.covered} of ${r.days} days)`).join(', ')}.`);
+    if (m.missingUnits.length) out.push(pre + `not entered yet: ${m.missingUnits.map(r => esc(r.u.name)).join(', ')}. Budget and benchmark comparisons leave ${m.missingUnits.length === 1 ? 'it' : 'them'} out until entered.`);
+    if (m.regMissing.length) out.push(pre + `regional costs not entered yet: ${m.regMissing.map(x => esc(regionById(x.rid).name)).join(', ')}.`);
+    const ml = m.missingLines.filter(r => r.missing.length); if (ml.length) out.push(pre + `lines left empty (counted as zero): ${ml.map(r => `${esc(r.u.name)}: ${r.missing.slice(0, 4).map(esc).join(', ')}${r.missing.length > 4 ? '…' : ''}`).join('; ')}.`);
+  }
+  if (none === ms.length) return `<div class="callout warn">No actual figures entered for ${multi ? 'these months' : 'this month'} yet.</div>`;
+  return out.length ? `<div class="callout warn">${out.map(x => `<div>${x.charAt(0).toUpperCase() === '<' ? x : x.charAt(0).toUpperCase() + x.slice(1)}</div>`).join('')}</div>` : '';
+}
+const seg = (act, cur, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button data-act="${act}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${esc(l)}</button>`).join('')}</div>`;
+function stepper(id, value, step, attrs) { return `<span class="stepper"><button data-act="step" data-d="-${step}" ${attrs} aria-label="Less">−</button><input class="num" id="${id}" value="${value}" ${attrs.replace('data-act="step"', '')} data-ch="stepval"><button data-act="step" data-d="${step}" ${attrs} aria-label="More">+</button></span>`; }
+
+// ---------- Overview ----------
+const VIEWS = {};
+VIEWS.placeholder = { main: () => `<div class="card"><h2>${esc((TABS.find(t => t[0] === ui.tab) || ['', ''])[1])}</h2><p>${ui.tab === 'vat' ? 'VAT readiness will be added later, as agreed.' : 'This screen comes in Phase 2 (incentives, incentive scenarios and task efficiency).'}</p></div>` };
+const overviewMonths = () => { const b = currentBudget(); return b ? b.months : months(); };
+function overviewData() {
+  const sc = ui.scope, ms = overviewMonths();
+  return ms.map(m => {
+    const B = scopeL(sc, m, currentBudget() ? 'budget' : 'plan'), A = scopeL(sc, m, 'actual');
+    const K = A ? scopeL(sc, m, 'bench') : scopeL(sc, m, 'benchB');
+    return { m, B, A, K, dB: B && B.sales ? distributable(B) / B.sales : null, dA: A && A.sales ? distributable(A) / A.sales : null, dK: K && K.sales ? distributable(K) / K.sales : null };
+  });
+}
+const BENCH_ITEMS = [['Production salaries to sales', L => L.prod], ['Sales staff to sales', L => L.ss], ['Branch overheads to sales', L => L.oh + L.bm]];
+function benchPctData() {
+  const sc = ui.scope, ym = ui.ym, A = scopeL(sc, ym, 'actual'), B = A ? scopeL(sc, ym, 'budget', reportedSet(sc, ym)) : scopeL(sc, ym, 'budget') || scopeL(sc, ym, 'plan');
+  const K = A ? scopeL(sc, ym, 'bench') : scopeL(sc, ym, 'benchB');
+  return BENCH_ITEMS.map(([label, f]) => { const k = K && K.sales ? f(K) / K.sales : null, b = B && B.sales ? f(B) / B.sales : null, a = A && A.sales ? f(A) / A.sales : null;
+    return { label, k, b, a, bi: k && b != null ? b / k : null, ai: k && a != null ? a / k : null }; });
+}
+VIEWS.overview = {
+  main() {
+    const sc = ui.scope, D = overviewData(), hasB = !!currentBudget(), bp = benchPctData(), rest = scopeAllRest(sc);
+    const only = reportedSet(sc, ui.ym), A = scopeL(sc, ui.ym, 'actual'), B = A ? scopeL(sc, ui.ym, 'budget', only) : scopeL(sc, ui.ym, 'budget'), K = scopeL(sc, ui.ym, 'bench');
+    const top = (X, label) => {
+      if (!A || !X) return `<p class="note">${A ? 'No ' + label + ' figures for this month.' : 'No actuals entered for this month yet.'}</p>`;
+      const ra = ratioRows(A, { rest }), rx = Object.fromEntries(ratioRows(X, { rest }).map(r => [r.k, r]));
+      const list = ra.filter(r => r.v != null && rx[r.k] && rx[r.k].v != null && !['nc', 'pbt'].includes(r.k))
+        .map(r => { const d = r.v - rx[r.k].v, bad = isCostKey(r.k) ? d : -d; return { ...r, x: rx[r.k].v, d, bad }; }).filter(r => r.bad > 0.0005).sort((a, b) => b.bad - a.bad).slice(0, 3);
+      if (!list.length) return '<p class="note">No ratio is worse than ' + label + ' this month.</p>';
+      return `<table><thead><tr><th>Ratio (% of sales)</th><th>${label === 'budget' ? 'Budget' : 'Benchmark'}</th><th>Actual</th><th>Gap</th></tr></thead><tbody>${list.map(r => `<tr><td>${esc(r.label.trim())}</td><td data-v="${r.x}" data-pct="1">${pct(r.x)}</td><td data-v="${r.v}" data-pct="1">${pct(r.v)}</td><td class="neg">${spts(r.d)}</td></tr>`).join('')}</tbody></table>`;
+    };
+    const tasks = allTasks().filter(t => t.status !== 'done' && t.due && t.due < todayStr() && inScope(t.unit)).sort((a, b) => a.due.localeCompare(b.due));
+    const ms = D.map(d => d.m), bl = hasB ? 'Budget' : 'Plan';
+    return `<div class="card"><header><h2>Sales and net profit · ${esc(scopeName(sc))}</h2><span class="note">Lines: sales (left scale). Bars: net profit (right scale).${hasB ? '' : ' No approved budget yet: "plan" shown.'}</span></header>
+        ${comboChart(ms, [{ label: bl + ' sales', color: 'var(--s1)', dash: true, vals: D.map(d => d.B && d.B.sales) }, { label: 'Actual sales', color: 'var(--s1)', vals: D.map(d => d.A && d.A.sales) }],
+          [{ label: bl + ' net profit', color: 'var(--good)', opacity: .35, vals: D.map(d => d.B && d.B.np) }, { label: 'Actual net profit', color: 'var(--good)', vals: D.map(d => d.A && d.A.np) }])}</div>
+      <div class="grid2"><div class="card"><header><h2>Staff and overheads against benchmark · ${monthLabel(ui.ym)}</h2></header><p class="note">Benchmark = 100%. Above 100% means the cost takes a bigger share of sales than the benchmark allows.</p>${benchBars(bp, bl)}</div>
+        <div class="card"><h2>Gross contribution · ${bl.toLowerCase()} vs actual</h2>${comboChart(ms, [{ label: bl + ' gross contribution', color: 'var(--s2)', dash: true, vals: D.map(d => d.B && d.B.gc) }, { label: 'Actual gross contribution', color: 'var(--s2)', vals: D.map(d => d.A && d.A.gc) }], [], { small: true })}</div></div>
+      <div class="grid2"><div class="card"><h2>Distributable cost as % of sales</h2><p class="note">Production salaries + 50% of branch overheads + regional (back office) costs.</p>${comboChart(ms, [{ label: 'Benchmark', color: 'var(--brown)', dash: true, vals: D.map(d => d.dK) }, { label: 'Actual', color: 'var(--brown)', vals: D.map(d => d.dA) }], [], { small: true, pct: true })}</div>
+        <div class="card"><h2>${monthLabel(ui.ym)} · budget vs actual</h2>${metaNotes(sc, ui.ym)}
+        ${B || A ? `<table class="zebra"><thead><tr><th></th><th>Budget</th><th>Actual</th><th>Variance</th></tr></thead><tbody>${['sales', 'gp', 'gc', ...(rest ? [] : ['nc']), 'pbt', 'np'].map(k => { const b = B ? getV(B, k) : null, a = A ? getV(A, k) : null, v = varianceOf(k, b, a); return `<tr class="${k === 'np' ? 'total' : ''}"><td>${esc(lineLabel(k))}</td><td data-v="${b ?? ''}">${money(b)}</td><td data-v="${a ?? ''}">${money(a)}</td><td>${v ? `${money(v.diff)} ${statusPill(statusOf(v))}` : '—'}</td></tr>`; }).join('')}</tbody></table>` : '<p class="note">No budget or actual figures for this month.</p>'}</div></div>
+      <div class="grid2"><div class="card"><h2>Biggest gaps against budget · ${monthLabel(ui.ym)}</h2>${top(B, 'budget')}</div><div class="card"><h2>Biggest gaps against benchmarks · ${monthLabel(ui.ym)}</h2>${top(K, 'benchmark')}</div></div>
+      <div class="card"><h2>Overdue tasks</h2>${tasks.length ? `<div class="list">${tasks.slice(0, 6).map(t => `<div class="item"><div class="t">${esc(t.title)}</div><div class="meta"><span>${esc(t.where || '')}</span><span class="neg">due ${fmtDate(t.due)}</span><span>${esc(t.owner || 'no owner')}</span></div></div>`).join('')}</div>${tasks.length > 6 ? `<p class="note">…and ${tasks.length - 6} more on Decisions & actions.</p>` : ''}` : '<p class="note">Nothing overdue.</p>'}</div>`;
+  },
+  sheets() {
+    const D = overviewData(), bl = currentBudget() ? 'Budget' : 'Plan', H = t => ({ v: t, head: true }), n = v => v == null ? null : v, P = v => v == null ? null : { v, pct: true };
+    return [{ name: 'Monthly', rows: [['Month', bl + ' sales', 'Actual sales', bl + ' net profit', 'Actual net profit', bl + ' gross contribution', 'Actual gross contribution', 'Benchmark distributable %', 'Actual distributable %'].map(H),
+      ...D.map(d => [monthLabel(d.m), n(d.B && d.B.sales), n(d.A && d.A.sales), n(d.B && d.B.np), n(d.A && d.A.np), n(d.B && d.B.gc), n(d.A && d.A.gc), P(d.dK), P(d.dA)])] },
+      { name: 'Against benchmark ' + monthLabel(ui.ym), rows: [['Item', 'Benchmark % of sales', bl + ' % of sales', 'Actual % of sales', bl + ' as % of benchmark', 'Actual as % of benchmark'].map(H), ...benchPctData().map(r => [r.label, P(r.k), P(r.b), P(r.a), P(r.bi), P(r.ai)])] },
+      ...domSheets()];
+  },
+  pdf: true,
+};
+// Lines (left scale) and bars (right scale) over months. opts: { small, pct }
+function comboChart(ms, lines, bars, opts = {}) {
+  const W = opts.small ? 460 : 900, H = opts.small ? 250 : 280, P = { l: opts.small ? 62 : 74, r: bars.length ? 74 : 14, t: 12, b: 26 }, n = ms.length, cw = (W - P.l - P.r) / n;
+  const fmt = opts.pct ? (v => pct(v, 1)) : money;
+  // Big chart starts at zero; small trend charts zoom in on the range of the figures so differences show.
+  const scale = vals => { const v = vals.flat().filter(x => x != null && isFinite(x)); if (!v.length) return { min: 0, max: 1 };
+    let max = Math.max(...v), min = Math.min(...v); if (!opts.small) { min = Math.min(0, min); max = Math.max(max, 1); }
+    const span = (max - min) || Math.abs(max) * 0.2 || 1, pad = span * 0.15; return { min: opts.small ? min - pad : (min < 0 ? min - pad : 0), max: max + pad }; };
+  const SL = scale(lines.map(s => s.vals)), SR = scale(bars.map(s => s.vals));
+  const yL = v => P.t + (H - P.t - P.b) * (SL.max - v) / (SL.max - SL.min || 1), yR = v => P.t + (H - P.t - P.b) * (SR.max - v) / (SR.max - SR.min || 1);
+  const ticks = S => [0, .25, .5, .75, 1].map(f => S.min + (S.max - S.min) * f);
+  const bw = cw * 0.7 / Math.max(1, bars.length);
+  const path = s => { let d = '', on = false; s.vals.forEach((v, i) => { if (v != null && isFinite(v)) { d += `${on ? 'L' : 'M'}${(P.l + cw * i + cw / 2).toFixed(1)},${yL(v).toFixed(1)}`; on = true; } else on = false; }); return d; };
+  const dots = s => s.vals.map((v, i) => v != null && isFinite(v) ? `<circle cx="${P.l + cw * i + cw / 2}" cy="${yL(v)}" r="3" fill="${s.color}"><title>${monthLabel(ms[i])} · ${esc(s.label)}: ${fmt(v)}</title></circle>` : '').join('');
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(lines.concat(bars).map(s => s.label).join(', '))}">
+    ${ticks(SL).map(t => `<line x1="${P.l}" x2="${W - P.r}" y1="${yL(t)}" y2="${yL(t)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${yL(t) + 4}" font-size="11" text-anchor="end" fill="var(--muted)">${fmt(t)}</text>`).join('')}
+    ${bars.length ? ticks(SR).map(t => `<text x="${W - P.r + 6}" y="${yR(t) + 4}" font-size="11" fill="var(--good)">${money(t)}</text>`).join('') + (SR.min < 0 ? `<line x1="${P.l}" x2="${W - P.r}" y1="${yR(0)}" y2="${yR(0)}" stroke="var(--good)" stroke-dasharray="2 3"/>` : '') : ''}
+    ${bars.map((s, j) => s.vals.map((v, i) => v != null && isFinite(v) ? `<rect x="${P.l + cw * i + cw * 0.15 + bw * j}" y="${Math.min(yR(v), yR(0))}" width="${bw - 2}" height="${Math.max(1, Math.abs(yR(0) - yR(v)))}" fill="${v < 0 ? 'var(--bad)' : s.color}" opacity="${s.opacity || 1}"><title>${monthLabel(ms[i])} · ${esc(s.label)}: ${money(v)}</title></rect>` : '').join('')).join('')}
+    ${lines.map(s => `<path d="${path(s)}" fill="none" stroke="${s.color}" stroke-width="2.5" ${s.dash ? 'stroke-dasharray="6 4"' : ''}/>${dots(s)}`).join('')}
+    ${ms.map((m, i) => (n > 8 && opts.small && i % 2) ? '' : `<text x="${P.l + cw * i + cw / 2}" y="${H - 7}" font-size="11" text-anchor="middle" fill="var(--dbrown)" font-weight="600">${monthLabel(m)}</text>`).join('')}</svg>
+    <div class="legend">${lines.map(s => `<span><i style="background:${s.color};${s.dash ? 'opacity:.55' : ''}"></i>${esc(s.label)}${s.dash ? ' (dashed)' : ''}</span>`).join('')}${bars.map(s => `<span><i style="background:${s.color};opacity:${s.opacity || 1}"></i>${esc(s.label)}</span>`).join('')}</div></div>`;
+}
+function benchBars(rows, bl) {
+  const W = 440, H = 240, P = { l: 40, r: 10, t: 14, b: 44 }, gw = (W - P.l - P.r) / rows.length, bw = gw / 4.2;
+  const vals = rows.flatMap(r => [1, r.bi, r.ai]).filter(v => v != null && isFinite(v)), max = Math.max(1.2, ...vals) * 1.08, y = v => P.t + (H - P.t - P.b) * (max - v) / max;
+  const bar = (v, x, color, label, op) => v == null || !isFinite(v) ? '' : `<rect x="${x}" y="${y(v)}" width="${bw - 3}" height="${y(0) - y(v)}" fill="${color}" opacity="${op || 1}"><title>${label}: ${pct(v, 0)} of benchmark</title></rect><text x="${x + bw / 2 - 1}" y="${y(v) - 3}" font-size="10" text-anchor="middle" fill="var(--ink)">${pct(v, 0)}</text>`;
+  if (!rows.some(r => r.k)) return '<p class="note">No benchmark figures yet: set the benchmark ratios and enter base figures.</p>';
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Budget and actual as % of benchmark">
+    ${[0, .5, 1, Math.round(max * 10) / 10 > 1.5 ? 1.5 : null].filter(v => v != null).map(t => `<line x1="${P.l}" x2="${W - P.r}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 1 ? 'var(--brown)' : 'var(--line)'}" ${t === 1 ? 'stroke-dasharray="4 3"' : ''}/><text x="${P.l - 4}" y="${y(t) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${pct(t, 0)}</text>`).join('')}
+    ${rows.map((r, i) => { const x = P.l + gw * i + gw * 0.1; return bar(r.k ? 1 : null, x, 'var(--brown)', 'Benchmark', .55) + bar(r.bi, x + bw, 'var(--s1)', bl, .45) + bar(r.ai, x + bw * 2, 'var(--s1)', 'Actual') +
+      `<text x="${P.l + gw * i + gw / 2}" y="${H - 26}" font-size="10.5" text-anchor="middle" fill="var(--ink)">${esc(r.label.replace(' to sales', ''))}</text><text x="${P.l + gw * i + gw / 2}" y="${H - 12}" font-size="10" text-anchor="middle" fill="var(--muted)">bench ${pct(r.k)} of sales</text>`; }).join('')}</svg>
+    <div class="legend"><span><i style="background:var(--brown);opacity:.55"></i>Benchmark (100%)</span><span><i style="background:var(--s1);opacity:.45"></i>${esc(bl)}</span><span><i style="background:var(--s1)"></i>Actual</span></div></div>`;
+}
+
+// ---------- Monthly planner ----------
+const PYM = () => ui.planToday ? 'today' : ui.ym;
+const ADJ_LINES = u => ['wastage', 'gaspack', 'branchExp', 'ss', 'oh', 'bm', ...(isRest(u) ? ['chef', 'bo', 'comp', 'ho', 'rmSal'] : [])];
+VIEWS.planner = {
+  levers() {
+    const ms = months(), sc = ui.scope, today = ui.planToday, c = CFG(), ym = ui.ym;
+    const head = `<h2>Levers · ${today ? 'Today' : monthLabel(ym)}</h2>
+      <div class="lv-h">Plan period</div><div class="btns" style="gap:6px"><label class="note">From <select id="plan-start" data-ch="planstart">${monthRange(ymAdd(thisYm(), -12), 36).map(m => `<option value="${m}"${m === c.plan.start ? ' selected' : ''}>${monthLabel(m)}</option>`).join('')}</select></label>
+        <label class="note">for <select id="plan-n" data-ch="plann">${Array.from({ length: 24 }, (_, i) => i + 1).map(n => `<option value="${n}"${n === (num(c.plan.n) || 12) ? ' selected' : ''}>${n} month${n > 1 ? 's' : ''}</option>`).join('')}</select></label></div>
+      <label class="fld" style="margin-top:8px"><span>Month you are changing</span><select id="plan-ym" data-ch="planym"><option value="today"${today ? ' selected' : ''}>Today (base figures)</option>${ms.map(m => `<option value="${m}"${!today && m === ym ? ' selected' : ''}>${monthLabel(m)}</option>`).join('')}</select></label>`;
+    if (!today && !ms.includes(ym)) return head + `<p class="callout warn">${monthLabel(ym)} is outside the plan period. Pick a month above.</p>`;
+    if (sc.kind === 'group') return head + '<p class="note" style="margin-top:10px">Pick a region or a branch from the menu (☰) to change its levers.</p>';
+    if (sc.kind === 'region') {
+      if (isRestRegion(sc.id)) return head + '<p class="note" style="margin-top:10px">Restaurants run independently: pick a restaurant from the menu to change its levers.</p>';
+      if (today) return head + regionalTodayHtml(sc.id);
+      return head + regionalLeversHtml(sc.id, PYM()) + '<p class="note">Pick a branch from the menu to change its own levers.</p>';
+    }
+    const u = unitById(sc.id);
+    if (today) return head + todayLeversHtml(u);
+    if (!openIn(u, PYM())) return head + `<p class="callout warn">${esc(u.name)} opens in ${monthLabel(u.opens)}.</p>`;
+    const pi = planInputs(u, PYM()), bp = basePct(u), S = sum(Object.values(pi.salesC));
+    const row = k => { const now = bp[k] + pi.adj[k] / 100; return `<div class="lv"><div class="nm">${esc(lineLabel(k))}<small>today ${pct(bp[k])} → ${pct(now)} of sales · ${money(S * now)}</small></div>${stepper(`adj-${k}`, (+pi.adj[k]).toFixed(1), 0.5, `data-act="step" data-kind="adj" data-k="${k}"`)}</div>`; };
+    const P = regionPlan(u.regionId, PYM())[u.id];
+    const secs = Object.keys(pi.heads);
+    return head + `<p class="note">Costs are a share of this month's sales: today's share plus or minus your change (in % points). Changes carry into later months.</p>
+      <div class="lv-h">Branch costs (% of sales)</div>${['wastage', 'gaspack', 'branchExp'].map(row).join('')}
+      <div class="lv"><div class="nm"><b>Gross contribution</b><small>sales − RM − wastage − gas & packing − branch expenses</small></div><div class="val">${P ? pct(P.gc / (P.sales || 1)) : '—'}</div></div>
+      ${secs.length ? `<div class="lv-h">Production staff (people × monthly pay)</div>${secs.map(s => `<div class="lv"><div class="nm">${esc(secById(s).name)}<small>${num(pi.heads[s])} × ${full(pi.salary[s])} = ${money(num(pi.heads[s]) * num(pi.salary[s]))}${num(pi.heads[s]) !== num((baseOf(u).prod[s] || {}).heads) ? ' · <b>changed</b>' : ''}</small></div>
+        <div>${stepper(`hd-${s}`, num(pi.heads[s]), 1, `data-act="step" data-kind="heads" data-k="${s}"`)}<br><input class="num" style="width:118px;margin-top:3px" id="sal-${s}" data-ch="salary" data-k="${s}" value="${num(pi.salary[s])}" aria-label="Monthly pay per person"></div></div>`).join('')}` : ''}
+      <div class="lv-h">Staff and overheads (% of sales)</div>${['ss', 'oh', 'bm', ...(isRest(u) ? ['chef'] : [])].map(row).join('')}
+      ${isRest(u) ? `<div class="lv-h">Back office (% of the restaurant's sales)</div>${REG_LINES.map(row).join('')}` : regionalLeversHtml(u.regionId, PYM())}`;
+  },
+  main() {
+    const ms = months(), sc = ui.scope, today = ui.planToday;
+    const tabs = `<div class="monthtabs" role="tablist"><button data-act="planym" data-v="today" aria-selected="${today}">Today</button>${ms.map(m => `<button data-act="planym" data-v="${m}" aria-selected="${!today && m === ui.ym}">${monthLabel(m)}${scopeL(sc, m, 'actual') ? '<span class="flag">actuals in</span>' : ''}</button>`).join('')}</div>`;
+    if (today) {
+      const L = scopeL(sc, null, 'base');
+      return `<div class="card"><header><h2>Today · ${esc(scopeName(sc))}</h2>${seg('plandaily', ui.planDaily, [[false, 'Monthly'], [true, 'Daily']])}</header>${tabs}
+        <p class="note">Base figures for a normal month, entered under Set-up › Base figures. Future months start from these.</p>
+        ${L ? plTable([{ label: ui.planDaily ? 'Per day' : 'Per month', L: ui.planDaily ? scaleL(L, 1 / 30) : L }], { cats: true, rest: scopeAllRest(sc), pctOfSales: true }) : '<p class="note">No base figures yet.</p>'}</div>`;
+    }
+    if (!ms.includes(ui.ym)) return `<div class="card"><header><h2>${esc(scopeName(sc))}</h2></header>${tabs}<p class="callout warn">${monthLabel(ui.ym)} is outside the plan period (${monthLabel(ms[0])} – ${monthLabel(ms[ms.length - 1])}). Pick a month above or change the plan period in the levers.</p></div>`;
+    const ym = PYM(), us = scopeUnits(sc).filter(u => openIn(u, ym));
+    const L = scopeL(sc, ym, 'plan');
+    const extras = sc.kind === 'group' ? '' : `<div class="grid2">${capexCard(us, ym)}${openingCard(sc, ym)}</div>`;
+    return `<div class="card"><header><h2>${esc(scopeName(sc))} · ${monthLabel(ym)}</h2><span class="note">Plan</span></header>${tabs}</div>${extras}
+      ${sc.kind === 'group' ? '' : salesTableCard(us, ym)}
+      <div class="card"><header><h2>Planned P&L · ${monthLabel(ym)}</h2><label class="tick"><input type="checkbox" data-ch="showcats" ${ui.showCats ? 'checked' : ''}> sales by category</label></header>${plTable([{ label: monthLabel(ym), L }], { cats: ui.showCats, rest: scopeAllRest(sc), pctOfSales: true })}</div>`;
+  },
+};
+function scaleL(L, f) { const X = clone(L); for (const [k, v] of Object.entries(X)) { if (typeof v === 'number' && k !== 'n') X[k] = v * f; else if (v && typeof v === 'object') for (const kk of Object.keys(v)) v[kk] *= f; } return X; }
+function todayLeversHtml(u) {
+  const b = baseOf(u), L = baseRegionPL(u.regionId)[u.id], f = ui.planDaily ? 1 / 30 : 1, m = v => money(v * f);
+  if (!L) return '<p class="note">No base figures yet.</p>';
+  return `<div style="margin:8px 0">${seg('plandaily', ui.planDaily, [[false, 'Monthly'], [true, 'Daily']])}</div>
+    <p class="note">Today's figures (base). Change them under Set-up › Base figures, with the PIN.</p>
+    <div class="lv-h">Product categories</div>${u.cats.map(c => `<div class="lv"><div class="nm">${esc(catById(c).name)}<small>${m(num(b.sales[c]))} · RM ${pct(num(b.sales[c]) ? num(b.rm[c]) / num(b.sales[c]) : null)}</small></div><button class="btn sm danger" data-act="cat-remove" data-k="${c}" title="Remove this category from ${esc(u.name)}">✕</button></div>`).join('')}
+    <div class="lv-h">Costs</div>${['wastage', 'gaspack', 'branchExp'].map(k => `<div class="lv"><div class="nm">${esc(lineLabel(k))}</div><div class="val">${m(L[k])}</div></div>`).join('')}
+    <div class="lv"><div class="nm"><b>Gross contribution</b></div><div class="val">${m(L.gc)}</div></div>
+    ${Object.entries(L.prodS).map(([s, v]) => `<div class="lv"><div class="nm">Production · ${esc(secById(s).name)}<small>${b.prod[s] ? `${num(b.prod[s].heads)} people × ${full(b.prod[s].salary)}` : 'share from the main branch'}</small></div><div class="val">${m(v)}</div></div>`).join('')}
+    ${['ss', 'bm', ...(isRest(u) ? ['chef'] : []), 'oh'].map(k => `<div class="lv"><div class="nm">${esc(lineLabel(k))}</div><div class="val">${m(L[k])}</div></div>`).join('')}
+    <div class="lv-h">${isRest(u) ? 'Back office' : 'Regional costs (this branch\'s share)'}</div>${REG_LINES.map(k => `<div class="lv"><div class="nm">${esc(lineLabel(k))}</div><div class="val">${m(L[k])}</div></div>`).join('')}`;
+}
+function regionalTodayHtml(rid) {
+  const b = baseRegion(rid), p = baseRegionPct(rid);
+  return `<div class="lv-h">Regional costs today (whole region)</div>${REG_LINES.map(k => `<div class="lv"><div class="nm">${esc(lineLabel(k))}<small>${pct(p[k])} of regional sales</small></div><div class="val">${money(b[k])}</div></div>`).join('')}`;
+}
+function regionalLeversHtml(rid, ym) {
+  const ri = regionPlanInputs(rid, ym), bp = baseRegionPct(rid), R = sum(unitsIn(rid).filter(u => openIn(u, ym)).map(u => (regionPlan(rid, ym)[u.id] || {}).sales || 0));
+  return `<div class="lv-h">Regional costs (% of regional sales · whole region)</div>${REG_LINES.map(k => { const now = bp[k] + ri.adj[k] / 100; return `<div class="lv"><div class="nm">${esc(lineLabel(k))}<small>today ${pct(bp[k])} → ${pct(now)} · ${money(R * now)}</small></div>${stepper(`radj-${k}`, (+ri.adj[k]).toFixed(1), 0.5, `data-act="step" data-kind="radj" data-k="${k}" data-rid="${rid}"`)}</div>`; }).join('')}`;
+}
+function capexCard(us, ym) {
+  const staff = [];
+  us.forEach(u => { const pi = planInputs(u, ym), i = months().indexOf(ym), prev = i > 0 && openIn(u, ymAdd(ym, -1)) ? planInputs(u, ymAdd(ym, -1)) : null; Object.keys(pi.heads).forEach(s => { const before = prev ? prev.heads[s] : num((baseOf(u).prod[s] || {}).heads), d = num(pi.heads[s]) - num(before); if (d) staff.push({ u, s, d, to: pi.heads[s] }); }); });
+  return `<div class="card"><h2>Capex, maintenance & staff · ${monthLabel(ym)}</h2>
+    <div class="tw"><table><thead><tr><th>Branch</th><th>Capex (Rs)</th><th>Maintenance (Rs)</th></tr></thead><tbody>${us.map(u => { const p = planRec(u)[ym] || {}; return `<tr><td>${esc(u.name)}</td><td><input class="num" id="cx-${u.id}" data-ch="capex" data-uid="${u.id}" data-k="capex" value="${isNum(p.capex) ? p.capex : ''}" placeholder="0"></td><td><input class="num" id="mt-${u.id}" data-ch="capex" data-uid="${u.id}" data-k="maint" value="${isNum(p.maint) ? p.maint : ''}" placeholder="0"></td></tr>`; }).join('')}</tbody></table></div>
+    <p class="note">Small items, charged in full to this month under branch expenses. Each entry adds a task on Decisions & actions.</p>
+    <div class="lv-h">Staff recruited or removed this month (from the levers)</div>${staff.length ? staff.map(x => `<div>${x.d > 0 ? 'Recruit' : 'Remove'} ${Math.abs(x.d)} · ${esc(secById(x.s).name)} at ${esc(x.u.name)} (now ${x.to}) <span class="pill good">task added</span></div>`).join('') : '<p class="note">No staff changes this month.</p>'}</div>`;
+}
+function openingCard(sc, ym) {
+  const c = CFG(), regs = sc.kind === 'unit' ? [regionById(unitById(sc.id).regionId)] : sc.kind === 'region' ? [regionById(sc.id)] : c.regions;
+  const bak = regs.filter(r => r && r.kind !== 'restaurants'); const opening = c.units.filter(u => u.opens === ym && u.planned && (sc.kind === 'group' || regs.some(r => r && r.id === u.regionId)));
+  return `<div class="card"><h2>New outlet opening in ${monthLabel(ym)}</h2>
+    ${opening.length ? `<div class="list">${opening.map(u => `<div class="item"><span class="t">${esc(u.name)}</span> <span class="note">${esc(UNIT_TYPES[u.type])} · ${esc(regionById(u.regionId).name)}</span> <button class="btn sm danger" data-act="opening-remove" data-uid="${u.id}">Remove</button></div>`).join('')}</div>` : ''}
+    ${bak.length ? `<div class="form" style="margin-top:8px">${bak.length > 1 ? `<label class="fld"><span>Region</span><select id="op-region">${bak.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}</select></label>` : `<input type="hidden" id="op-region" value="${bak[0].id}">`}
+      <label class="fld"><span>Outlet type</span><select id="op-model">${c.models.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></label>
+      <label class="fld"><span>Name</span><input class="txt" id="op-name" placeholder="e.g. Hali-Ela outlet"></label></div><div class="btns" style="margin-top:8px"><button class="btn primary" data-act="opening-add">Add the new outlet</button></div>
+      <p class="note">It starts with its type's figures (Set-up › New outlet models); change its sales below.</p>` : '<p class="note">New outlets go into bakery regions.</p>'}</div>`;
+}
+function salesTableCard(us, ym) {
+  if (!us.length) return '';
+  const cats = [...new Set(us.flatMap(u => u.cats))];
+  const pis = us.map(u => planInputs(u, ym)), decs = Object.fromEntries(Store.keys('dec:chg:').map(k => [k, Store.get(k)]));
+  const cell = (u, pi, c) => {
+    if (!u.cats.includes(c)) return '<td class="note">—</td>';
+    const os = pi.ovr['sales.' + c], or = pi.ovr['rm.' + c];
+    const tick = f => { const d = decs[`dec:chg:${u.id}:${ym}:${f}`]; return d ? `<label class="tick" title="Make this change a task"><input type="checkbox" data-ch="dectick" data-key="dec:chg:${u.id}:${ym}:${f}" ${d.status === 'tasked' ? 'checked disabled' : ''}>task</label>` : ''; };
+    return `<td><div class="cellpair"><input class="num${os ? ' ovr' : ''}" id="ps-${u.id}-${c}" data-ch="psales" data-uid="${u.id}" data-k="${c}" value="${Math.round(pi.salesC[c])}" aria-label="${esc(u.name)} ${esc(catById(c).name)} sales">${os ? `<button class="reset" data-act="preset" data-uid="${u.id}" data-f="sales" data-k="${c}" title="Back to the default">↺</button>` : ''}${tick('sales.' + c)}</div></td>
+      <td><div class="cellpair"><input class="num${or ? ' ovr' : ''}" style="min-width:58px;width:64px" id="pm-${u.id}-${c}" data-ch="pmargin" data-uid="${u.id}" data-k="${c}" value="${(100 - pi.rmPct[c]).toFixed(1)}" aria-label="${esc(u.name)} ${esc(catById(c).name)} raw material margin %">${or ? `<button class="reset" data-act="preset" data-uid="${u.id}" data-f="rmPct" data-k="${c}" title="Back to the default">↺</button>` : ''}${tick('rm.' + c)}</div></td>`;
+  };
+  return `<div class="card"><header><h2>Sales by outlet · ${monthLabel(ym)}</h2><span class="note">Default: last month's actual if entered, otherwise last month's plan. Changed figures turn amber; tick "task" to follow one up.</span></header>
+    <div class="tw"><table><thead><tr><th rowspan="2">Category</th>${us.map(u => `<th colspan="2" class="l">${esc(u.name)}</th>`).join('')}</tr><tr>${us.map(() => '<th>Sales (Rs)</th><th>RM margin %</th>').join('')}</tr></thead><tbody>
+    ${cats.map(c => `<tr><td>${esc(catById(c).name)}</td>${us.map((u, i) => cell(u, pis[i], c)).join('')}</tr>`).join('')}
+    <tr class="total"><td>Total</td>${us.map((u, i) => { const S = sum(u.cats.map(c => pis[i].salesC[c])), R = sum(u.cats.map(c => pis[i].salesC[c] * pis[i].rmPct[c] / 100)); return `<td>${money(S)}</td><td>${S ? pct(1 - R / S) : '—'}</td>`; }).join('')}</tr></tbody></table></div></div>`;
+}
+
+// ---------- Decisions & actions (Phase 1: basic) ----------
+const allTasks = () => Store.keys('task:').map(k => ({ key: k, ...Store.get(k) }));
+const allDecs = () => Store.keys('dec:').map(k => ({ key: k, ...Store.get(k) }));
+const inScope = uid => { if (ui.scope.kind === 'group') return true; if (!uid) return ui.scope.kind === 'group'; const u = unitById(uid); if (!u) return false; return ui.scope.kind === 'unit' ? u.id === ui.scope.id : u.regionId === ui.scope.id; };
+VIEWS.decisions = {
+  levers() {
+    const t = allTasks().filter(x => inScope(x.unit)), d = allDecs().filter(x => x.status === 'open' && inScope(x.unit));
+    const b = (id, l, n) => `<button class="btn${ui.decTab === id ? ' primary' : ''}" style="width:100%;text-align:left;margin-bottom:6px" data-act="dectab" data-v="${id}">${l}${n != null ? ` <span class="pill">${n}</span>` : ''}</button>`;
+    return `<h2>Decisions & actions</h2><p class="note">${esc(scopeName(ui.scope))}</p><div style="margin-top:10px">${b('pending', 'Pending tasks', t.filter(x => x.status !== 'done').length)}${b('done', 'Completed tasks', t.filter(x => x.status === 'done').length)}${b('decide', 'Decisions to be taken', d.length)}${b('new', '+ Create a new task')}</div>`;
+  },
+  main() {
+    const T = allTasks().filter(x => inScope(x.unit));
+    if (ui.decTab === 'new') return newTaskCard();
+    if (ui.decTab === 'done') {
+      const done = T.filter(x => x.status === 'done').sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
+      return `<div class="card"><h2>Completed tasks</h2>${done.length ? `<div class="tw"><table><thead><tr><th>Task</th><th>Where</th><th>Scheduled</th><th>Completed</th><th></th></tr></thead><tbody>${done.map(t => `<tr><td class="l" style="white-space:normal">${esc(t.title)}</td><td class="l">${esc(t.where || '')}</td><td>${fmtDate(t.due)}</td><td>${fmtDate(t.doneAt)}</td><td><button class="btn sm" data-act="task-reopen" data-key="${t.key}">Reopen</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="note">No completed tasks yet.</p>'}</div>`;
+    }
+    if (ui.decTab === 'decide') {
+      const D = allDecs().filter(x => x.status === 'open' && inScope(x.unit)).sort((a, b) => (a.ym || '').localeCompare(b.ym || ''));
+      return `<div class="card"><h2>Decisions to be taken</h2><p class="note">Changes made in the Monthly planner, and decisions added by hand. Make one a task, or dismiss it.</p>
+        ${D.length ? `<div class="list">${D.map(d => `<div class="item"><div class="t">${esc(d.text)}</div><div class="meta"><span>${esc(d.where || '')}</span><span>${d.ym ? monthLabel(d.ym) : ''}</span><span>${fmtDate((d.createdAt || '').slice(0, 10))}</span></div><div class="btns" style="margin-top:6px"><button class="btn sm primary" data-act="dec-task" data-key="${d.key}">Make it a task</button><button class="btn sm" data-act="dec-dismiss" data-key="${d.key}">Dismiss</button></div></div>`).join('')}</div>` : '<p class="note">Nothing waiting for a decision.</p>'}
+        <div class="lv-h">Add a decision</div><div class="form"><label class="fld"><span>Decision needed</span><input class="txt" id="nd-text"></label><label class="fld"><span>Where</span>${whereSelect('nd-unit')}</label></div><div class="btns" style="margin-top:8px"><button class="btn" data-act="dec-add">Add</button></div></div>`;
+    }
+    const P = T.filter(x => x.status !== 'done').sort((a, b) => (a.due || '9').localeCompare(b.due || '9'));
+    return `<div class="card"><h2>Pending tasks</h2>${P.length ? `<div class="list">${P.map(t => {
+      const late = t.due && t.due < todayStr(), open = ui.openTask === t.key;
+      return `<div class="item"><div class="btns" style="justify-content:space-between"><span class="t">${esc(t.title)}</span><button class="btn sm" data-act="task-open" data-key="${t.key}">${open ? 'Close' : 'Open'}</button></div>
+        <div class="meta"><span>${esc(t.where || '')}</span><span${late ? ' class="neg"' : ''}>due ${fmtDate(t.due)}${late ? ' · overdue' : ''}</span><span>${esc(t.owner || 'no owner yet')}</span><span>${esc(t.source === 'auto' ? 'from the planner' : t.source === 'decision' ? 'from a decision' : 'added by hand')}</span></div>
+        ${open ? `<div class="form" style="margin-top:8px"><label class="fld"><span>Task</span><input class="txt" id="te-title" data-ch="task-field" data-key="${t.key}" data-f="title" value="${esc(t.title)}"></label><label class="fld"><span>Owner</span><input class="txt" id="te-owner" data-ch="task-field" data-key="${t.key}" data-f="owner" value="${esc(t.owner || '')}"></label>
+          <label class="fld"><span>Due</span><input type="date" class="txt" id="te-due" data-ch="task-field" data-key="${t.key}" data-f="due" value="${esc(t.due || '')}"></label><label class="fld"><span>Notes</span><textarea id="te-notes" data-ch="task-field" data-key="${t.key}" data-f="notes" rows="2">${esc(t.notes || '')}</textarea></label></div>
+          <div class="btns" style="margin-top:8px"><button class="btn primary" data-act="task-done" data-key="${t.key}">Mark done (operations manager)</button><button class="btn danger" data-act="task-del" data-key="${t.key}">Delete</button></div>` : ''}</div>`;
+    }).join('')}</div>` : '<p class="note">No pending tasks.</p>'}</div>`;
+  },
+};
+VIEWS.decisions.sheets = () => {
+  const T = allTasks().filter(x => inScope(x.unit)), D = allDecs().filter(x => inScope(x.unit)), H = t => ({ v: t, head: true });
+  const late = t => !t.due ? '' : t.status === 'done' ? (t.doneAt <= t.due ? 'On time' : `${Math.round((new Date(t.doneAt) - new Date(t.due)) / 864e5)} days late`) : (t.due < todayStr() ? 'Overdue' : '');
+  return [{ name: 'Pending tasks', rows: [['Task', 'Where', 'Owner', 'Due', 'Source', 'Notes', 'Timing'].map(H), ...T.filter(t => t.status !== 'done').sort((a, b) => (a.due || '').localeCompare(b.due || '')).map(t => [t.title, t.where || '', t.owner || '', t.due || '', t.source || '', t.notes || '', late(t)])], widths: [60, 22, 18, 12, 12, 30, 14] },
+    { name: 'Completed tasks', rows: [['Task', 'Where', 'Owner', 'Scheduled', 'Completed', 'Timing'].map(H), ...T.filter(t => t.status === 'done').map(t => [t.title, t.where || '', t.owner || '', t.due || '', t.doneAt || '', late(t)])], widths: [60, 22, 18, 12, 12, 14] },
+    { name: 'Decisions', rows: [['Decision', 'Where', 'Month', 'Status', 'Raised'].map(H), ...D.map(d => [d.text, d.where || '', d.ym ? monthLabel(d.ym) : '', d.status, (d.createdAt || '').slice(0, 10)])], widths: [70, 22, 10, 12, 12] }];
+};
+function whereSelect(id) {
+  const c = CFG(), sel = ui.scope.kind === 'unit' ? ui.scope.id : '';
+  return `<select id="${id}"><option value="">Group / general</option>${c.regions.map(r => `<optgroup label="${esc(r.name)}">${unitsIn(r.id).map(u => `<option value="${u.id}"${u.id === sel ? ' selected' : ''}>${esc(u.name)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+}
+function newTaskCard() {
+  return `<div class="card"><h2>Create a new task</h2><div class="form"><label class="fld"><span>Task</span><input class="txt" id="nt-title"></label><label class="fld"><span>Where</span>${whereSelect('nt-unit')}</label>
+    <label class="fld"><span>Owner</span><input class="txt" id="nt-owner"></label><label class="fld"><span>Due</span><input type="date" class="txt" id="nt-due" value="${addDays(todayStr(), 14)}"></label><label class="fld"><span>Notes</span><textarea id="nt-notes" rows="2"></textarea></label></div>
+    <div class="btns" style="margin-top:10px"><button class="btn primary" data-act="task-add">Create task</button></div></div>`;
+}
+// Tasks created by the planner (staff, capex, openings): one per key, updated as the plan changes.
+async function upsertAutoTask(key, title, u, ym) {
+  const old = Store.get(key);
+  if (!title) { if (old && old.status !== 'done' && !old.owner && !old.notes) await Store.del(key); return; }
+  if (old && old.title === title) return;
+  await Store.set(key, { ...(old || { status: 'pending', owner: '', notes: '', createdAt: new Date().toISOString(), due: `${ym}-01` }), title, where: u ? u.name : '', unit: u ? u.id : '', ym, source: 'auto' });
+}
+async function logChange(u, ym, field, label, from, to) {
+  const key = `dec:chg:${u.id}:${ym}:${field}`, old = Store.get(key);
+  if (old && old.status === 'tasked') return;
+  const f0 = old && old.status === 'open' && old.from != null ? old.from : from;
+  if (f0 === to) { if (old) await Store.del(key); return; }
+  await Store.set(key, { kind: 'change', unit: u.id, where: u.name, ym, field, from: f0, to, text: `${u.name} · ${monthLabel(ym)}: ${label} changed from ${f0} to ${to}`, status: 'open', createdAt: (old && old.createdAt) || new Date().toISOString() });
+}
+'use strict';
+/* =====================================================================
+   Salgado Budget Planner · budgets, actuals, variance, what-if, printing
+   ===================================================================== */
+function whatIfHtml(which) {
+  const w = ui[which], sc = ui.scope, cats = [...new Set(scopeUnits(sc).flatMap(u => u.cats))];
+  const inp = (k, label, unit, hint) => `<div class="lv"><div class="nm">${esc(label)}<small>${esc(hint)}</small></div>${stepper(`${which}-${k}`, num(w[k]), unit === '%' ? 1 : 0.5, `data-act="step" data-kind="wi" data-w="${which}" data-k="${k}"`)}</div>`;
+  return `<h2>What-if</h2><p class="note">Try changes against the ${which === 'wiB' ? 'budget' : 'actual figures'} without saving anything.</p>
+    ${perPicker('wi', which === 'wiA' ? 'Months shown and tested' : 'Months to test')}<div style="height:6px"></div>
+    ${inp('salesPct', 'Sales', '%', '± % of sales, every category')}
+    <div class="lv-h">Raw material cost (± % points)</div>
+    <div class="lv"><div class="nm">All categories</div>${stepper(`${which}-rmall`, num((w.rmPts || {})._all), 0.5, `data-act="step" data-kind="wirm" data-w="${which}" data-k="_all"`)}</div>
+    ${cats.map(c => `<div class="lv"><div class="nm">${esc(catById(c).name)}</div>${stepper(`${which}-rm-${c}`, num((w.rmPts || {})[c]), 0.5, `data-act="step" data-kind="wirm" data-w="${which}" data-k="${c}"`)}</div>`).join('')}
+    <div class="lv-h">Costs</div>${inp('prodPct', 'Production staff', '%', '± % of the cost')}${inp('wastagePts', 'Wastage', 'pts', '± % points of sales')}${inp('backPct', 'Back office cost', '%', '± % of the cost')}
+    <div class="btns" style="margin-top:10px"><button class="btn" data-act="wi-reset" data-w="${which}">Reset</button></div>`;
+}
+function whatIfCard(kind, which) {
+  const w = ui[which]; if (!whatIfActive(w)) return '';
+  const ms = perMonths('wi'), sc = ui.scope;
+  const base = sumL(ms.map(m => scopeL(sc, m, kind)).filter(Boolean)), wi = sumL(ms.map(m => scopeWhatIf(sc, m, kind, w)).filter(Boolean));
+  if (!base.n) return `<div class="card"><h2>What-if</h2><p class="note">No ${kind} figures to test against in ${perLabel('wi')}.</p></div>`;
+  const label = kind === 'budget' ? 'Budget' : kind === 'plan' ? 'Plan' : 'Actual';
+  return `<div class="card"><header><h2>What-if · ${perLabel('wi')}</h2><span class="note">${kind === 'actual' ? 'What we would have made with these changes' : 'Not saved'}</span></header>
+    ${plTable([{ label, L: base }, { label: 'What-if', L: wi }], { staff: ui.staffView, rest: scopeAllRest(sc), variance: [0, 1], noStatus: true })}</div>`;
+}
+
+// ---------- Budgets ----------
+// Budgets always show branch manager pay inside branch overheads and regional manager pay inside back office staff.
+VIEWS.budgets = {
+  levers: () => perPicker('bud', 'Budget period') + '<p class="note">Pick the months to budget, then approve. An approved budget shows its own months by default.</p><hr style="border:0;border-top:1px solid var(--line);margin:12px 0">' + whatIfHtml('wiB'),
+  main() {
+    const b = currentBudget(), sc = ui.scope, ms = perMonths('bud'), inB = m => b && b.months.includes(m);
+    const kindOf = m => inB(m) ? 'budget' : 'plan';
+    const Ls = ms.map(m => scopeL(sc, m, kindOf(m))), T = sumL(Ls.filter(Boolean));
+    const mixed = b && ms.some(m => !inB(m)), same = b && ms.length === b.months.length && ms.every(inB);
+    const head = `<div class="card"><header><div><h2>${b ? esc(b.name) : 'No approved budget yet'}</h2><p class="note">${b ? `Approved ${fmtDate(b.approvedAt)} · ${monthLabel(b.months[0])} – ${monthLabel(b.months[b.months.length - 1])} · locked. ` : 'Below is the Monthly plan for the chosen months. '}${esc(scopeName(sc))}.</p></div>
+      <div class="btns">${same ? '<button class="btn" data-act="approve">Approve a new budget (PIN)</button>' : `<button class="btn primary" data-act="approve">${b ? 'Replace the budget with the plan for ' : 'Approve the plan as the budget for '}${perLabel('bud')}${b ? ' (PIN)' : ''}</button>`}</div></header>
+      ${mixed ? `<div class="callout warn">Months outside the approved budget (${ms.filter(m => !inB(m)).map(monthLabel).join(', ')}) show the plan.</div>` : ''}
+      <p class="note">Branch manager pay is inside branch overheads, regional manager pay inside back office staff, chef pay inside production staff.</p></div>`;
+    const table = `<div class="card"><h2>${b && !mixed ? 'Budget' : b ? 'Budget and plan' : 'Plan'} · ${perLabel('bud')}</h2>${monthlyTable(Ls, T, { staff: true, rest: scopeAllRest(sc), months: ms })}</div>`;
+    return head + whatIfCard(b ? 'budget' : 'plan', 'wiB') + table + extrasCard(b, ms);
+  },
+};
+function monthlyTable(Ls, T, opts) {
+  const ms = opts.months || months(), rows = plRows({ ...opts, L: T }), part = opts.part || [0, ms.length], last = part[1] >= ms.length;
+  const idx = ms.map((m, i) => i).filter(i => i >= part[0] && i < part[1]);
+  return `<div class="tw"><table class="zebra"><thead><tr><th>Line</th>${idx.map(i => `<th class="dt">${monthLabel(ms[i])}</th>`).join('')}${last && ms.length > 1 ? '<th>Total</th>' : ''}</tr></thead><tbody>
+    ${rows.map(r => `<tr class="${r.t}"><td>${r.t === 'total' && r.k !== 'sales' ? '= ' : r.t === 'total' || r.t === 'sub' ? '' : '(−) '}${esc(lineLabel(r.k))}</td>${idx.map(i => { const L = Ls[i], v = L ? getV(L, r.k) : null; return `<td${v < 0 ? ' class="neg"' : ''} data-v="${v == null ? '' : v}">${v == null ? '—' : money(v)}</td>`; }).join('')}${last && ms.length > 1 ? `<td data-v="${getV(T, r.k)}"><b>${money(getV(T, r.k))}</b></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+}
+function extrasCard(b, ms) {
+  let staff, capex, open;
+  if (b) ({ staff, capex, openings: open } = b.extras);
+  else { const s = snapshotBudget('x', ms); ({ staff, capex, openings: open } = s.extras); }
+  const ok = x => inScope(x.unit) && ms.includes(x.ym);
+  staff = staff.filter(ok); capex = capex.filter(ok); open = open.filter(ok);
+  const nm = id => esc((unitById(id) || { name: id }).name);
+  return `<div class="card"><h2>Staff recruitments, Capex and openings ${b ? 'in the budget' : 'in the plan'}</h2>
+    ${staff.length || capex.length || open.length ? `<div class="tw"><table><thead><tr><th>Month</th><th>Branch</th><th class="l">What</th><th>Amount</th></tr></thead><tbody>
+      ${[...staff.map(x => ({ ym: x.ym, u: x.unit, what: `${x.change > 0 ? 'Recruit' : 'Remove'} ${Math.abs(x.change)} · ${secById(x.sec).name}`, amt: `${x.change > 0 ? '+' : '−'}${money(Math.abs(x.change) * x.salary)} a month` })),
+         ...capex.map(x => ({ ym: x.ym, u: x.unit, what: [x.capex ? 'Capex' : '', x.maint ? 'Maintenance' : ''].filter(Boolean).join(' + '), amt: money(x.capex + x.maint) })),
+         ...open.map(x => ({ ym: x.ym, u: x.unit, what: 'New outlet opens', amt: '' }))].sort((a, c) => a.ym.localeCompare(c.ym)).map(x => `<tr><td class="dt">${monthLabel(x.ym)}</td><td class="l">${nm(x.u)}</td><td class="l">${esc(x.what)}</td><td>${x.amt}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">None planned.</p>'}</div>`;
+}
+
+// ---------- Actuals ----------
+const ACT_LINES = u => ['wastage', 'gaspack', 'branchExp', 'capex', 'maint', 'ss', 'oh', 'bm', ...(isRest(u) ? ['chef', ...REG_LINES] : [])];
+function periodOptions() {
+  const ms = [ymAdd(months()[0], -2), ymAdd(months()[0], -1), ...months()];
+  if (ui.actType === 'month') return ms.map(m => ['m:' + m, monthLabel(m)]);
+  const out = [], seen = new Set(); let ws = weekStart(ms[0] + '-01'); const end = ms[ms.length - 1] + '-' + dim(ms[ms.length - 1]);
+  while (ws <= end) { if (!seen.has(ws)) { seen.add(ws); out.push(['w:' + ws, `Week of ${fmtDate(ws)}`]); } ws = addDays(ws, 7); }
+  return out;
+}
+function curPeriod() {
+  const opts = periodOptions().map(o => o[0]);
+  if (ui.actPeriod && opts.includes(ui.actPeriod)) return ui.actPeriod;
+  if (ui.actType === 'month') return 'm:' + ui.ym;
+  const lw = 'w:' + weekStart(addDays(todayStr(), -7)); return opts.includes(lw) ? lw : opts.find(o => o.slice(2, 9) === ui.ym) || opts[0];
+}
+VIEWS.actuals = {
+  levers: () => whatIfHtml('wiA'),
+  main() {
+    const sc = ui.scope;
+    let entry = '';
+    if (sc.kind === 'unit') entry = entryCard({ kind: 'unit', u: unitById(sc.id) });
+    else if (sc.kind === 'region' && !isRestRegion(sc.id)) entry = entryCard({ kind: 'region', rid: sc.id }) + statusCard(sc);
+    else entry = statusCard(sc);
+    const ms = perMonths('wi'), Ls = ms.map(m => scopeL(sc, m, 'actual')), T = sumL(Ls.filter(Boolean));
+    return entry + whatIfCard('actual', 'wiA') + `<div class="card"><header><h2>Actual P&L · ${esc(scopeName(sc))} · ${perLabel('wi')}</h2>${seg('staffview', ui.staffView, [[false, 'Full detail'], [true, 'Staff view']])}</header>${metaNotes(sc, ms)}
+      ${T.n ? (ms.length > 1 ? monthlyTable(Ls, T, { staff: ui.staffView, rest: scopeAllRest(sc), months: ms }) : plTable([{ label: monthLabel(ms[0]), L: Ls[0] }], { staff: ui.staffView, cats: true, rest: scopeAllRest(sc), pctOfSales: true })) : ''}</div>`;
+  },
+};
+function statusCard(sc) {
+  const us = scopeUnits(sc).filter(u => openIn(u, ui.ym)), m = actualMeta(sc, ui.ym);
+  return `<div class="card"><h2>Who has entered ${monthLabel(ui.ym)}</h2><div class="tw"><table><thead><tr><th>Branch</th><th>Figures</th><th>Month locked</th><th class="l">Lines left empty</th><th></th></tr></thead><tbody>
+    ${m.rows.map(r => `<tr><td>${esc(r.u.name)}</td><td>${r.src === 'none' ? '<span class="pill bad">Not entered</span>' : r.src === 'weekly' ? `<span class="pill warn">Weekly · ${r.covered}/${r.days} days</span>` : '<span class="pill good">Month entered</span>'}</td><td>${r.submitted ? '🔒 Yes' : 'No'}</td><td class="l note" style="white-space:normal">${r.missing && r.missing.length ? esc(r.missing.join(', ')) : ''}</td><td><button class="btn sm" data-act="scope" data-kind="unit" data-id="${r.u.id}">Enter</button></td></tr>`).join('')}
+    ${m.regions.map(x => `<tr><td>${esc(regionById(x.rid).name)} · regional costs</td><td>${x.a ? (x.a.src === 'weekly' ? '<span class="pill warn">Weekly</span>' : '<span class="pill good">Month entered</span>') : '<span class="pill bad">Not entered</span>'}</td><td>${x.a && x.a.submitted ? '🔒 Yes' : 'No'}</td><td></td><td><button class="btn sm" data-act="scope" data-kind="region" data-id="${x.rid}">Enter</button></td></tr>`).join('')}
+    </tbody></table></div>${us.length ? '' : '<p class="note">No branches open this month.</p>'}</div>`;
+}
+function entryCard(t) {
+  const period = curPeriod(), isMonth = period.startsWith('m:'), prefix = t.kind === 'unit' ? 'act:' + t.u.id : 'actR:' + t.rid;
+  const rec = Store.get(`${prefix}:${period}`) || { v: {} }, v = rec.v || {};
+  const monthYm = isMonth ? period.slice(2) : null, mrec = isMonth ? rec : null, locked = isMonth && mrec && mrec.submitted;
+  const ymRef = isMonth ? monthYm : period.slice(2, 9);
+  const prevYm = ymAdd(ymRef, -1);
+  const prevA = t.kind === 'unit' ? actualUnit(t.u, prevYm) : actualRegion(t.rid, prevYm);
+  const bud = t.kind === 'unit' ? unitL(t.u, ymRef, 'budget') : null;
+  const budR = t.kind === 'region' ? sumL(unitsIn(t.rid).map(u => unitL(u, ymRef, 'budget')).filter(Boolean)) : null;
+  const share = isMonth ? 1 : 7 / dim(ymRef); // a week's budget = 7 days of the month's budget
+  const weekKeys = isMonth ? Store.keys(prefix + ':w:').filter(k => overlapDays(k.slice(prefix.length + 3), monthYm) > 0) : [];
+  const wk = (path) => { if (!weekKeys.length) return null; let s = 0, any = false; weekKeys.forEach(k => { const x = path(Store.get(k).v || {}); if (isNum(x)) { s += +x; any = true; } }); return any ? s : null; };
+  const get = (o, k, c) => c ? ((o || {})[k] || {})[c] : (o || {})[k];
+  const row = (label, k, c, budV) => {
+    const val = get(v, k, c), pv = prevA ? get(prevA.v, k, c) : null, wv = wk(o => get(o, k, c));
+    return `<tr><td>${esc(label)}</td><td><input class="num" id="ae-${k}-${c || ''}" data-ch="actual" data-prefix="${prefix}" data-period="${period}" data-k="${k}" data-c="${c || ''}" value="${isNum(val) ? val : ''}" ${locked ? 'disabled' : ''}></td>
+      <td class="note">${isNum(pv) ? full(pv) : '—'}</td><td class="note">${budV != null ? full(budV * share) : '—'}</td>${isMonth ? `<td class="note">${wv != null ? full(wv) : '—'}</td>` : ''}</tr>`;
+  };
+  let rows = '';
+  if (t.kind === 'unit') {
+    const u = t.u;
+    rows += `<tr class="head"><td colspan="${isMonth ? 5 : 4}">Sales and raw material cost by category</td></tr>`;
+    u.cats.forEach(c => { rows += row(catById(c).name + ' · sales', 'sales', c, bud ? bud.salesC[c] || 0 : null) + row(catById(c).name + ' · raw material cost', 'rm', c, bud ? bud.rmC[c] || 0 : null); });
+    rows += `<tr class="head"><td colspan="${isMonth ? 5 : 4}">Costs</td></tr>`;
+    ACT_LINES(u).forEach(k => { rows += row(lineLabel(k).replace('of which ', ''), k, null, bud ? (k === 'branchExp' ? bud.branchExp - bud.capex - bud.maint : bud[k]) : null); });
+    const secs = Object.keys(baseOf(u).prod);
+    if (isProducer(u) && secs.length) { rows += `<tr class="head"><td colspan="${isMonth ? 5 : 4}">Production staff cost (whole section, before sharing with outlets)</td></tr>`; secs.forEach(s => { rows += row(secById(s).name, 'prod', s, null); }); }
+  } else {
+    REG_LINES.forEach(k => { rows += row(lineLabel(k), k, null, budR ? budR[k] : null); });
+  }
+  const title = t.kind === 'unit' ? t.u.name : regionById(t.rid).name + ' · regional costs';
+  return `<div class="card"><header><h2>Enter actuals · ${esc(title)}</h2>${seg('acttype', ui.actType, [['week', 'Week'], ['month', 'Month']])}</header>
+    <div class="btns"><select id="act-period" data-ch="actperiod">${periodOptions().map(([k, l]) => `<option value="${k}"${k === period ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      ${isMonth ? (locked ? `<span class="pill good">🔒 Month submitted ${fmtDate(mrec.submittedAt)}</span><button class="btn" data-act="act-unlock" data-key="${prefix}:${period}">Unlock (PIN)</button>` : `<button class="btn primary" data-act="act-submit" data-key="${prefix}:${period}">Submit & lock this month</button>`) : '<span class="note">Weekly figures stay open for checking.</span>'}</div>
+    <p class="note">${isMonth ? 'Final monthly figures replace the weekly ones in the analysis. ' : 'Weekly figures are scaled up to a full month in the analysis and marked "from weekly" until the month is entered. '}Each figure saves as you leave the box. Leave a box empty if you don't have it yet.</p>
+    <div class="tw"><table><thead><tr><th>Line</th><th>${isMonth ? monthLabel(monthYm) : 'This week'} (Rs)</th><th>Last month actual</th><th>Budget ${isMonth ? 'this month' : 'for a week'}</th>${isMonth ? '<th>Weeks entered so far</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ---------- Variance analysis ----------
+const VAR_REPORTS = [[1, 'Actual P&L vs budget'], [2, 'This month vs previous month (actuals)'], [3, 'Actual P&L vs benchmark P&L'], [4, 'Ratios: actual vs budget'], [5, 'Ratios: actual vs benchmark']];
+VIEWS.variance = {
+  levers() {
+    const al = CFG().alerts;
+    return `<h2>Reports</h2><div class="list" style="margin-top:8px">${VAR_REPORTS.map(([n, l]) => `<label class="tick" style="font-size:13.5px;color:var(--ink)"><input type="radio" name="vr" data-ch="varrep" value="${n}" ${ui.varRep === n ? 'checked' : ''}> ${n}. ${esc(l)}</label>`).join('')}</div>
+      ${perPicker('var', 'Months')}
+      <div class="lv-h">Printing</div><label class="tick" style="font-size:13px;color:var(--ink)"><input type="checkbox" data-ch="varsep" ${ui.varSep ? 'checked' : ''}> Also print each branch on its own page</label>
+      <div class="btns" style="margin-top:8px"><button class="btn primary" data-act="print-var">Print this report</button></div>
+      <div class="lv-h">Alert levels</div><p class="note">Watch beyond ${al.amber}% off, Act beyond ${al.red}% off (Set-up › Benchmarks).</p>
+      <p class="note">Benchmark P&L = this month's actual sales with the benchmark ratios applied.</p>`;
+  },
+  main() { const ms = perMonths('var'); return `<div class="card"><header><h2>${esc(VAR_REPORTS[ui.varRep - 1][1])}</h2><span class="note dt">${esc(scopeName(ui.scope))} · ${perLabel('var')}</span></header>${metaNotes(ui.scope, ms)}${varianceReport(ui.scope, ms, ui.varRep)}</div>`; },
+};
+function varianceReport(sc, ms, n) {
+  if (!Array.isArray(ms)) ms = [ms];
+  const A = scopeLM(sc, ms, 'actual'), rest = scopeAllRest(sc), lab = ms.length === 1 ? monthLabel(ms[0]) : `${monthLabel(ms[0])} – ${monthLabel(ms[ms.length - 1])}`;
+  if (n === 1) { const B = scopeLM(sc, ms, 'budget', true); if (!B) return '<p class="note">No approved budget for these months.</p>'; return plTable([{ label: 'Budget', L: B }, { label: 'Actual', L: A }], { rest, cats: true, variance: [0, 1] }); }
+  if (n === 2) { const pm = ms.map(m => ymAdd(m, -ms.length)), P = scopeLM(sc, pm, 'actual'), pl = pm.length === 1 ? monthLabel(pm[0]) : `${monthLabel(pm[0])} – ${monthLabel(pm[pm.length - 1])}`; return plTable([{ label: pl, L: P }, { label: lab, L: A }], { rest, cats: true, variance: [0, 1] }); }
+  if (n === 3) { const K = scopeLM(sc, ms, 'bench'); return plTable([{ label: 'Benchmark', L: K }, { label: 'Actual', L: A }], { rest, cats: true, variance: [0, 1] }); }
+  const X = n === 4 ? scopeLM(sc, ms, 'budget', true) : scopeLM(sc, ms, 'bench');
+  if (!A || !X) return `<p class="note">${!A ? 'No actuals for these months yet.' : 'No budget for these months.'}</p>`;
+  const ra = ratioRows(A, { rest }), rx = Object.fromEntries(ratioRows(X, { rest }).map(r => [r.k, r]));
+  return `<div class="tw"><table class="zebra"><thead><tr><th>Ratio (share of sales)</th><th>${n === 4 ? 'Budget' : 'Benchmark'}</th><th>Actual</th><th>Difference</th><th>Status</th></tr></thead><tbody>
+    ${ra.map(r => { const x = rx[r.k] ? rx[r.k].v : null; if (r.v == null && x == null) return ''; const d = r.v != null && x != null ? r.v - x : null;
+      const v = d == null ? null : { diff: d, good: isCostKey(r.k) ? -d : d, pct: x ? d / Math.abs(x) : null };
+      return `<tr class="${r.label.startsWith('  ') ? 'sub' : ['gp', 'gc', 'nc', 'pbt', 'np'].includes(r.k) ? 'total' : ''}"><td>${esc(r.label.trim())}</td><td data-v="${x ?? ''}" data-pct="1">${pct(x)}</td><td data-v="${r.v ?? ''}" data-pct="1">${pct(r.v)}</td><td class="${v && v.good < 0 ? 'neg' : ''}" data-v="${d ?? ''}" data-pct="1">${spts(d)}</td><td>${v ? statusPill(statusOf(v, 0)) : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+// ---------- Printing ----------
+function printDocs(docs) {
+  let host = $('#printhost'); if (!host) { host = document.createElement('div'); host.id = 'printhost'; document.body.appendChild(host); }
+  host.innerHTML = docs.map(d => `<div class="pdoc"><h1>${esc(d.title)}</h1><div class="meta">${esc(d.meta)} · printed ${fmtDate(todayStr())}</div>${d.html}</div>`).join('');
+  setTimeout(() => window.print(), 50);
+}
+function printBudget() {
+  const b = currentBudget(), sc = ui.scope, ms = perMonths('bud'), kindOf = m => b && b.months.includes(m) ? 'budget' : 'plan';
+  const parts = []; for (let i = 0; i < ms.length; i += 6) parts.push([i, Math.min(ms.length, i + 6)]);
+  const doc = s => { const Ls = ms.map(m => scopeL(s, m, kindOf(m))); return { title: `${b ? b.name : 'Plan (not approved)'} · ${scopeName(s)}`, meta: `Salgado Group · ${perLabel('bud')}`, html: parts.map(part => monthlyTable(Ls, sumL(Ls.filter(Boolean)), { staff: true, rest: scopeAllRest(s), part, months: ms })).join('<div style="height:10px"></div>') }; };
+  const docs = [doc(sc)]; if (sc.kind !== 'unit') scopeUnits(sc).forEach(u => docs.push(doc({ kind: 'unit', id: u.id })));
+  printDocs(docs);
+}
+function printVariance() {
+  const sc = ui.scope, n = ui.varRep;
+  const ms = perMonths('var'), doc = s => ({ title: `${VAR_REPORTS[n - 1][1]} · ${scopeName(s)}`, meta: perLabel('var'), html: metaNotes(s, ms) + varianceReport(s, ms, n) });
+  const docs = [doc(sc)]; if (ui.varSep && sc.kind !== 'unit') scopeUnits(sc).filter(u => ms.some(m => openIn(u, m))).forEach(u => docs.push(doc({ kind: 'unit', id: u.id })));
+  printDocs(docs);
+}
+'use strict';
+/* =====================================================================
+   Salgado Budget Planner · set-up screens
+   ===================================================================== */
+function lockBar() {
+  return isUnlocked() ? '<div class="callout warn">Unlocked: changes here are saved straight away. Lock again with the button at the top when you are done.</div>'
+    : '<div class="callout">These settings are locked. <button class="btn sm primary" data-act="unlock">Unlock with the director PIN</button></div>';
+}
+const dis = () => isUnlocked() ? '' : 'disabled';
+const cfgNum = (path, val, attrs = '') => `<input class="num" id="cf-${path.replace(/\./g, '-')}" data-ch="cfg" data-path="${path}" data-type="num" value="${isNum(val) ? val : ''}" ${dis()} ${attrs}>`;
+const cfgTxt = (path, val, attrs = '') => `<input class="txt" id="cf-${path.replace(/\./g, '-')}" data-ch="cfg" data-path="${path}" data-type="txt" value="${esc(val ?? '')}" ${dis()} ${attrs}>`;
+function setupHtml() {
+  const f = SETUP_VIEWS[ui.setup]; return f ? f() : '';
+}
+const SETUP_VIEWS = {
+  structure() {
+    const c = CFG();
+    return `<div class="card"><h2>Group structure</h2>${lockBar()}<p class="note">Create regions, then the branches and outlets in each. Put all restaurants in one "restaurants" cluster: they run independently, so no costs are shared between them.</p></div>
+      ${c.regions.map(r => { const us = unitsIn(r.id), mains = us.filter(u => isProducer(u) && !isRest(u));
+        return `<div class="card"><header><div class="btns"><input class="txt" style="font-weight:600;font-size:15px" id="rg-${r.id}" data-ch="region-name" data-rid="${r.id}" value="${esc(r.name)}" ${dis()} aria-label="Region name"><span class="pill">${r.kind === 'restaurants' ? 'Restaurants cluster' : 'Bakery region'}</span></div>
+          <button class="btn sm danger" data-act="region-del" data-rid="${r.id}" ${dis()}>Delete region</button></header>
+          <div class="tw"><table><thead><tr><th>Name</th><th class="l">Type</th><th class="l">Goods supplied by</th><th class="l">Opens (if new)</th><th class="l">Product categories sold</th><th></th></tr></thead><tbody>
+          ${us.map(u => `<tr><td><input class="txt" id="un-${u.id}" data-ch="unit-f" data-uid="${u.id}" data-f="name" value="${esc(u.name)}" ${dis()}></td>
+            <td><select id="ut-${u.id}" data-ch="unit-f" data-uid="${u.id}" data-f="type" ${dis()}>${Object.entries(UNIT_TYPES).filter(([k]) => r.kind === 'restaurants' ? k === 'restaurant' : k !== 'restaurant').map(([k, l]) => `<option value="${k}"${u.type === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></td>
+            <td>${isProducer(u) ? '<span class="note">Own production</span>' : `<select id="us-${u.id}" data-ch="unit-f" data-uid="${u.id}" data-f="supplier" ${dis()}>${mains.map(m => `<option value="${m.id}"${supplierOf(u) === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`}</td>
+            <td><input type="month" class="txt" id="uo-${u.id}" data-ch="unit-f" data-uid="${u.id}" data-f="opens" value="${esc(u.opens || '')}" ${dis()}></td>
+            <td class="l" style="white-space:normal"><details><summary>${u.cats.length} categories</summary>${c.cats.map(k => `<label class="tick" style="display:flex;color:var(--ink)"><input type="checkbox" data-ch="unit-cat" data-uid="${u.id}" data-k="${k.id}" ${u.cats.includes(k.id) ? 'checked' : ''} ${dis()}> ${esc(k.name)}</label>`).join('')}</details></td>
+            <td><button class="btn sm danger" data-act="unit-del" data-uid="${u.id}" ${dis()}>Delete</button></td></tr>`).join('')}</tbody></table></div>
+          <div class="btns" style="margin-top:8px"><button class="btn" data-act="unit-add" data-rid="${r.id}" ${dis()}>+ Add ${r.kind === 'restaurants' ? 'a restaurant' : 'a branch or outlet'}</button></div></div>`; }).join('')}
+      <div class="card"><h2>Add a region</h2><div class="form"><label class="fld"><span>Name</span><input class="txt" id="nr-name" ${dis()}></label><label class="fld"><span>Kind</span><select id="nr-kind" ${dis()}><option value="bakery">Bakery region</option><option value="restaurants">Restaurants cluster</option></select></label></div>
+        <div class="btns" style="margin-top:8px"><button class="btn primary" data-act="region-add" ${dis()}>Add region</button></div></div>`;
+  },
+  models() {
+    const c = CFG(), cats = c.cats;
+    return `<div class="card"><h2>New outlet models</h2>${lockBar()}<p class="note">Starting figures for a new outlet of each type. When you add a new outlet in the Monthly planner it copies these; you then change its sales there.</p></div>
+      ${c.models.map((m, i) => `<div class="card"><header><div class="btns">${cfgTxt(`models.${i}.name`, m.name, 'style="font-weight:600"')}<select data-ch="cfg" data-path="models.${i}.type" data-type="txt" id="mt-${i}" ${dis()}>${Object.entries(MODEL_TYPES).map(([k, t]) => `<option value="${k}"${m.type === k ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div><button class="btn sm danger" data-act="model-del" data-i="${i}" ${dis()}>Delete</button></header>
+        <div class="grid2"><div class="tw"><table><thead><tr><th>Category</th><th>Sales a month (Rs)</th><th>RM cost %</th></tr></thead><tbody>${cats.map(k => `<tr><td>${esc(k.name)}</td><td>${cfgNum(`models.${i}.sales.${k.id}`, (m.sales || {})[k.id])}</td><td>${cfgNum(`models.${i}.rm.${k.id}`, (m.rm || {})[k.id])}</td></tr>`).join('')}</tbody></table></div>
+        <div class="form" style="align-content:start">${[['wastage', 'Wastage'], ['gaspack', 'Gas & packing'], ['branchExp', 'Branch expenses'], ['ss', 'Sales & service staff'], ['oh', 'Branch overheads'], ['bm', 'Branch / outlet manager']].map(([k, l]) => `<label class="fld"><span>${l} (% of sales)</span>${cfgNum(`models.${i}.${k}`, m[k])}</label>`).join('')}</div></div></div>`).join('')}
+      <div class="card"><div class="btns"><button class="btn primary" data-act="model-add" ${dis()}>+ Add an outlet model</button></div></div>`;
+  },
+  split() {
+    const s = CFG().split, tot = num(s.main) + num(s.large) + num(s.others);
+    return `<div class="card"><h2>Regional cost distribution</h2>${lockBar()}<p class="note">Regional costs (back office staff, compliance, HO fees, regional manager) are shared out to each region's branches: this % to the main branch, to large branches and to the others, split equally within each group. Franchises carry none. Restaurants carry their own.</p>
+      <div class="form" style="max-width:700px"><label class="fld"><span>Main branch (%)</span>${cfgNum('split.main', s.main)}</label><label class="fld"><span>Large branches (%)</span>${cfgNum('split.large', s.large)}</label><label class="fld"><span>Other branches and outlets (%)</span>${cfgNum('split.others', s.others)}</label></div>
+      <p class="${Math.abs(tot - 100) > 0.01 ? 'neg' : 'note'}">Total ${tot}%${Math.abs(tot - 100) > 0.01 ? ': should add up to 100. Where a region has no branch in a group, its share goes to the others in proportion.' : ''}</p></div>`;
+  },
+  tax() {
+    const t = CFG().tax;
+    return `<div class="card"><h2>Tax</h2>${lockBar()}<div class="form" style="max-width:820px">
+      <label class="fld"><span>Corporate tax rate (%)</span>${cfgNum('tax.corp', t.corp)}<span class="hint">Worked out per branch on its profit before tax.</span></label>
+      <label class="fld"><span>SSCL rate (%)</span>${cfgNum('tax.ssclRate', t.ssclRate)}</label><label class="fld"><span>SSCL threshold (Rs a year)</span>${cfgNum('tax.ssclThreshold', t.ssclThreshold)}</label><label class="fld"><span>Share of sales liable to SSCL (%)</span>${cfgNum('tax.ssclShare', t.ssclShare)}</label>
+      <label class="fld"><span>VAT rate (%)</span>${cfgNum('tax.vatRate', t.vatRate)}</label><label class="fld"><span>VAT threshold (Rs a year)</span>${cfgNum('tax.vatThreshold', t.vatThreshold)}</label></div>
+      <p class="note">SSCL and VAT are kept here for the VAT readiness screen, which comes later. Only corporate tax is in the P&L now.</p></div>`;
+  },
+  bench() {
+    const c = CFG(), B = c.bench, cats = c.cats, secs = c.sections;
+    const pIn = (path, v) => cfgNum(path, v, 'style="max-width:110px"');
+    return `<div class="card"><h2>Benchmark ratios & product categories</h2>${lockBar()}<p class="note">The long-term targets. Budgets aim towards these; the variance analysis compares actuals with them (actual sales × these ratios).</p></div>
+      <div class="card"><h2>Product categories</h2><div class="tw"><table><thead><tr><th>Category</th><th class="l">Made by production unit</th><th>VAT exempt</th><th>Input VAT %</th><th>RM % · bakeries</th><th>RM % · outlets</th><th></th></tr></thead><tbody>
+        ${cats.map((k, i) => `<tr><td>${cfgTxt(`cats.${i}.name`, k.name)}</td><td><select data-ch="cfg" data-path="cats.${i}.section" data-type="txt" id="cs-${i}" ${dis()}><option value="">— bought in / resale</option>${secs.map(s => `<option value="${s.id}"${k.section === s.id ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select></td>
+          <td><input type="checkbox" data-ch="cfg" data-path="cats.${i}.vatExempt" data-type="bool" ${k.vatExempt ? 'checked' : ''} ${dis()} aria-label="VAT exempt"></td><td>${pIn(`cats.${i}.inputVat`, k.inputVat)}</td>
+          <td>${pIn(`bench.bakery.rm.${k.id}`, B.bakery.rm[k.id])}</td><td>${cfgNum(`bench.outlet.rm.${k.id}`, B.outlet.rm[k.id], `placeholder="${isNum(B.bakery.rm[k.id]) ? B.bakery.rm[k.id] : ''}" style="max-width:110px"`)}</td>
+          <td><button class="btn sm danger" data-act="cat-del" data-i="${i}" ${dis()}>Delete</button></td></tr>`).join('')}</tbody></table></div>
+        <p class="note">Outlet RM % left empty uses the bakery (main branch) figure.</p><div class="btns" style="margin-top:6px"><input class="txt" id="nc-name" placeholder="New category name" ${dis()}><button class="btn" data-act="cat-add" ${dis()}>+ Add category</button></div></div>
+      <div class="card"><h2>Production units</h2><div class="btns">${secs.map((s, i) => `<span class="cellpair">${cfgTxt(`sections.${i}.name`, s.name)}<button class="btn sm danger" data-act="sec-del" data-i="${i}" ${dis()} title="Delete">✕</button></span>`).join('')}</div>
+        <div class="btns" style="margin-top:8px"><input class="txt" id="ns-name" placeholder="New production unit" ${dis()}><button class="btn" data-act="sec-add" ${dis()}>+ Add</button></div></div>
+      <div class="grid2"><div class="card"><h2>Bakeries (main & large branches)</h2><div class="form">
+        ${[['wastage', 'Wastage'], ['gaspack', 'Gas & packing'], ['branchExp', 'Branch expenses'], ['ss', 'Sales & service staff'], ['oh', 'Branch overheads'], ['bm', 'Branch manager']].map(([k, l]) => `<label class="fld"><span>${l} (% of sales)</span>${pIn(`bench.bakery.${k}`, B.bakery[k])}</label>`).join('')}</div>
+        <div class="lv-h">Production staff (% of the sales of that unit's items)</div><div class="form">${secs.map(s => `<label class="fld"><span>${esc(s.name)}</span>${pIn(`bench.bakery.prod.${s.id}`, B.bakery.prod[s.id])}</label>`).join('')}</div>
+        <div class="lv-h">Regional costs (% of regional sales)</div><div class="form">${REG_LINES.map(k => `<label class="fld"><span>${esc(lineLabel(k))}</span>${pIn(`bench.bakery.${k}`, B.bakery[k])}</label>`).join('')}</div></div>
+      <div><div class="card"><h2>Outlets</h2><div class="form">${[['wastage', 'Wastage'], ['gaspack', 'Gas & packing'], ['delivery', 'Delivery cost (in branch expenses)'], ['mgr', 'Outlet manager'], ['staff', 'Staff (sales & service)'], ['oh', 'Outlet overheads']].map(([k, l]) => `<label class="fld"><span>${l} (% of sales)</span>${pIn(`bench.outlet.${k}`, B.outlet[k])}</label>`).join('')}</div><p class="note">Outlets use the bakery production-staff ratios for the items they sell.</p></div>
+        <div class="card"><h2>Restaurants</h2><div class="form">${[['rm', 'Cost of sales'], ['gaspack', 'Gas & packing'], ['branchExp', 'Branch expenses'], ['prod', 'Production staff (incl. chef)'], ['ss', 'Sales & service staff'], ['oh', 'Branch overheads']].map(([k, l]) => `<label class="fld"><span>${l} (% of sales)</span>${pIn(`bench.restaurant.${k}`, B.restaurant[k])}</label>`).join('')}</div><p class="note">Restaurant wastage, branch manager and back office have no benchmark: their actuals are used.</p></div>
+        <div class="card"><h2>Alert levels</h2><div class="form"><label class="fld"><span>Watch beyond (% off)</span>${pIn('alerts.amber', c.alerts.amber)}</label><label class="fld"><span>Act beyond (% off)</span>${pIn('alerts.red', c.alerts.red)}</label></div></div></div></div>`;
+  },
+  base() {
+    const c = CFG(), sel = ui.baseSel || (c.units[0] ? 'u:' + c.units[0].id : c.regions[0] ? 'r:' + c.regions[0].id : '');
+    const opts = c.regions.map(r => `<optgroup label="${esc(r.name)}">${r.kind !== 'restaurants' ? `<option value="r:${r.id}"${sel === 'r:' + r.id ? ' selected' : ''}>${esc(r.name)} · regional costs</option>` : ''}${unitsIn(r.id).map(u => `<option value="u:${u.id}"${sel === 'u:' + u.id ? ' selected' : ''}>${esc(u.name)}</option>`).join('')}</optgroup>`).join('');
+    let body = '<p class="note">Add regions and branches under Group structure first.</p>';
+    const bIn = (key, path, v) => `<input class="num" id="bs-${path.replace(/\./g, '-')}" data-ch="base" data-key="${key}" data-path="${path}" value="${isNum(v) ? v : ''}" ${dis()}>`;
+    if (sel.startsWith('r:')) {
+      const rid = sel.slice(2), b = Store.get('baseR:' + rid) || {};
+      body = `<p class="note">The region's monthly costs today, shared out by the regional cost distribution.</p><div class="form">${REG_LINES.map(k => `<label class="fld"><span>${esc(lineLabel(k))} (Rs a month)</span>${bIn('baseR:' + rid, k, b[k])}</label>`).join('')}</div>`;
+    } else if (sel.startsWith('u:')) {
+      const u = unitById(sel.slice(2)); if (u) {
+        const b = Store.get('base:' + u.id) || {}, S = sum(u.cats.map(k => num((b.sales || {})[k]))), prod = b.prod || {};
+        body = `<p class="note">${esc(u.name)}: a normal month today, in rupees. Future months in the planner start from these.</p>
+          <div class="grid2"><div class="tw"><table><thead><tr><th>Category</th><th>Sales (Rs a month)</th><th>Raw material cost (Rs)</th><th>RM %</th></tr></thead><tbody>
+            ${u.cats.map(k => { const s = num((b.sales || {})[k]), r = num((b.rm || {})[k]); return `<tr><td>${esc(catById(k).name)}</td><td>${bIn('base:' + u.id, 'sales.' + k, (b.sales || {})[k])}</td><td>${bIn('base:' + u.id, 'rm.' + k, (b.rm || {})[k])}</td><td>${s ? pct(r / s) : '—'}</td></tr>`; }).join('')}
+            <tr class="total"><td>Total</td><td>${money(S)}</td><td>${money(sum(u.cats.map(k => num((b.rm || {})[k]))))}</td><td></td></tr></tbody></table>
+            <p class="note">Categories sold are set under Group structure.</p></div>
+          <div><div class="form">${['wastage', 'gaspack', 'branchExp', 'ss', 'oh', 'bm', ...(isRest(u) ? ['chef', ...REG_LINES] : [])].map(k => `<label class="fld"><span>${esc(lineLabel(k).replace('of which ', ''))} (Rs a month)</span>${bIn('base:' + u.id, k, b[k])}<span class="hint">${S && isNum(b[k]) ? pct(num(b[k]) / S) + ' of sales' : ''}</span></label>`).join('')}</div>
+          ${isProducer(u) ? `<div class="lv-h">Production staff ${isRest(u) ? '(the chef goes above, not here)' : '(people and monthly pay per person)'}</div><div class="tw"><table><thead><tr><th>Production unit</th><th>People</th><th>Pay per person (Rs)</th><th>Cost</th><th></th></tr></thead><tbody>
+            ${Object.entries(prod).map(([s, x]) => `<tr><td>${esc(secById(s).name)}</td><td>${bIn('base:' + u.id, `prod.${s}.heads`, x.heads)}</td><td>${bIn('base:' + u.id, `prod.${s}.salary`, x.salary)}</td><td>${money(num(x.heads) * num(x.salary))}</td><td><button class="btn sm danger" data-act="base-sec-del" data-uid="${u.id}" data-k="${s}" ${dis()}>✕</button></td></tr>`).join('')}</tbody></table></div>
+            <div class="btns" style="margin-top:6px"><select id="bsec-${u.id}" ${dis()}>${CFG().sections.filter(s => !prod[s.id]).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select><button class="btn sm" data-act="base-sec-add" data-uid="${u.id}" ${dis()}>+ Add production unit</button></div>` : '<p class="note">Production staff cost comes from the branch that supplies this outlet.</p>'}</div></div>`;
+      }
+    }
+    return `<div class="card"><h2>Base figures (today)</h2>${lockBar()}<p class="note">The operations head enters each branch's current monthly figures here. They are locked with the director PIN.</p>
+      <label class="fld" style="max-width:420px"><span>Branch or region</span><select id="base-sel" data-ch="basesel">${opts}</select></label></div><div class="card">${body}</div>`;
+  },
+  settings() {
+    const c = CFG();
+    return `<div class="card"><h2>Settings</h2>${lockBar()}<p class="note">The plan period (first month and number of months) is now set in the Monthly planner levers. The current plan runs ${monthLabel(c.plan.start)} – ${monthLabel(months()[months().length - 1])}.</p></div>
+      <div class="card"><h2>Director PIN</h2><p class="note">Needed to change set-up, base figures, unlock a submitted month or replace the budget.</p><div class="form" style="max-width:700px"><label class="fld"><span>Current PIN</span><input class="txt" type="password" id="pin-old" autocomplete="off"></label><label class="fld"><span>New PIN</span><input class="txt" type="password" id="pin-new" autocomplete="off"></label><label class="fld"><span>New PIN again</span><input class="txt" type="password" id="pin-new2" autocomplete="off"></label></div>
+        <div class="btns" style="margin-top:8px"><button class="btn primary" data-act="pin-change">Change PIN</button></div></div>
+      <div class="card"><h2>Backup</h2><p class="note">Download everything (set-up, base figures, plans, budgets, actuals, tasks) as one file. Keep a copy in Google Drive each month${Store.mode === 'remote' ? ': the free database plan has no automatic backups' : ''}.</p>
+        <div class="btns"><button class="btn primary" data-act="backup">Download backup</button><label class="btn">Restore from a backup (PIN)<input type="file" accept=".json,application/json" id="restore-file" data-ch="restore" hidden></label></div></div>
+      <div class="card"><h2>Sample data</h2><p class="note">Load the figures from the old planner (11 branches and restaurants) to try the screens, or clear everything to start with your real structure.</p>
+        <div class="btns"><button class="btn" data-act="sample">Load sample data (PIN)</button><button class="btn danger" data-act="clear-all">Clear all data (PIN)</button></div></div>
+      <div class="card"><h2>Connection</h2><p>${Store.mode === 'remote' ? `Shared database · signed in as ${esc(Store.session ? Store.session.user : '')}` : 'Demo mode: data is kept in this browser only. Follow the hosting guide to share it with the team.'}</p></div>`;
+  },
+};
+'use strict';
+/* =====================================================================
+   Print, PDF and Excel for every screen
+   ===================================================================== */
+function exportBar() {
+  const v = VIEWS[ui.tab]; if (!v || ui.tab === 'incentives' || ui.tab === 'incscen' || ui.tab === 'taskeff' || ui.tab === 'vat') return '';
+  return `<div class="exportbar"><button class="btn" data-act="export" data-kind="print">🖨 Print</button>${v.pdf ? '<button class="btn" data-act="export" data-kind="pdf">⬇ PDF</button>' : ''}<button class="btn" data-act="export" data-kind="xlsx">⬇ Excel</button></div>`;
+}
+const tabName = () => (TABS.find(t => t[0] === ui.tab) || ['', ui.tab])[1];
+function periodText() {
+  if (ui.tab === 'budgets') return perLabel('bud');
+  if (ui.tab === 'variance') return perLabel('var');
+  if (ui.tab === 'actuals') return perLabel('wi');
+  if (ui.tab === 'planner') return ui.planToday ? 'Today (base figures)' : monthLabel(ui.ym);
+  return monthLabel(ui.ym);
+}
+// Copy of the screen for printing: inputs become their values, buttons go.
+function cleanMain() {
+  const src = $('#main'); if (!src) return '';
+  const c = src.cloneNode(true);
+  c.querySelectorAll('.exportbar, button, .seg, .tick, details.ae-items summary').forEach(e => e.remove());
+  c.querySelectorAll('select').forEach(sel => { const o = sel.options[sel.selectedIndex]; const sp = document.createElement('span'); sp.textContent = o ? o.text : ''; sel.replaceWith(sp); });
+  c.querySelectorAll('input, textarea').forEach(inp => { if (inp.type === 'hidden' || inp.type === 'file') return inp.remove(); const sp = document.createElement('span'); sp.textContent = inp.type === 'checkbox' || inp.type === 'radio' ? (inp.checked ? '☑' : '') : inp.value; inp.replaceWith(sp); });
+  return c.innerHTML;
+}
+// Every table on the screen becomes a sheet; exact figures come from data-v.
+function domSheets(root) {
+  root = root || $('#main'); if (!root) return [];
+  const out = [];
+  root.querySelectorAll('table').forEach((t, i) => {
+    const card = t.closest('.card'), h = card && card.querySelector('h2'), rows = [];
+    t.querySelectorAll('tr').forEach(tr => {
+      const r = [];
+      tr.querySelectorAll('th, td').forEach(cell => {
+        const span = +(cell.getAttribute('colspan') || 1);
+        let v;
+        if (cell.tagName === 'TH') v = { v: cell.innerText.trim(), head: true };
+        else if (cell.dataset.v != null && cell.dataset.v !== '' && isFinite(+cell.dataset.v)) v = cell.dataset.pct ? { v: +cell.dataset.v, pct: true } : +cell.dataset.v;
+        else { const inp = cell.querySelector('input:not([type=checkbox]), select'); if (inp) { const raw = inp.tagName === 'SELECT' ? inp.options[inp.selectedIndex].text : inp.value; v = raw !== '' && isFinite(+raw) ? +raw : raw; } else v = cell.innerText.replace(/\s+/g, ' ').trim(); }
+        if (tr.classList.contains('total') && v != null && typeof v !== 'object') v = { v, bold: true };
+        r.push(v); for (let k = 1; k < span; k++) r.push(null);
+      });
+      if (r.length) rows.push(r);
+    });
+    if (rows.length) out.push({ name: (h ? h.innerText.split('·')[0].trim() : '') || 'Table ' + (i + 1), rows });
+  });
+  return out;
+}
+function doExport(kind) {
+  const v = VIEWS[ui.tab] || {}, title = `${tabName()} · ${scopeName(ui.scope)}`;
+  if (kind === 'xlsx') {
+    const sheets = v.sheets ? v.sheets() : domSheets();
+    sheets.unshift({ name: 'About', rows: [[{ v: 'Salgado Budget Planner', bold: true }], ['Report', tabName()], ['Showing', scopeName(ui.scope)], ['Period', periodText()], ['Downloaded', fmtDate(todayStr())]], widths: [16, 40] });
+    XLSX.download(`${tabName()} - ${scopeName(ui.scope)} - ${periodText()}`, sheets); toast('Excel file downloaded.'); return;
+  }
+  if (ui.tab === 'budgets' && kind === 'print') return printBudget();
+  if (ui.tab === 'variance' && kind === 'print') return printVariance();
+  if (kind === 'pdf') toast('In the print window, choose "Save as PDF" as the printer.');
+  printDocs([{ title, meta: periodText(), html: cleanMain() }]);
+}
+'use strict';
+/* =====================================================================
+   Sample data: the figures from the old planner (Badulla + group budget files)
+   ===================================================================== */
+const SAMPLE_RAW = [{"id":"legendary","name":"Legendary Bakers","fmt":"bakery","town":"Kandy","s":[["hot_kitchen",1440000,0.4351,191750],["bakery",2475000,0.4351,229000],["buy_sell",103200,0.7,0],["tea",2400000,0.4351,142000],["short_eats",132000,0.5,0],["short_eats",450000,0.95,43750],["short_eats",1662000,0.44,0],["juice",600000,0.7,0],["biscuits",150000,0.4,0],["cakes",450000,0.4351,0]],"g":280000,"ss":461000,"oh":420000,"bo":381500,"f":180000,"ho":150000,"o":40000},{"id":"anuradhapura","name":"Anuradhapura Bakery","fmt":"bakery","town":"Anuradhapura","s":[["short_eats",558688,0.46,272000],["bakery",2568594,0.46,366425],["tea",583050,0.46,93500],["juice",811100,0.46,83200],["buy_sell",16900,0.46,0]],"g":185000,"ss":381000,"oh":476245,"bo":122500,"f":287500,"ho":250000,"o":0},{"id":"cake_republic","name":"Cake Republic","fmt":"bakery","town":"Anuradhapura","s":[["cakes",528990,0.4,103875],["cakes",2944740,0.58,159800],["cakes",1139772,0.5,75800],["juice",157368,0.5,20800]],"g":286252.2,"ss":184875,"oh":332245,"bo":122500,"f":35000,"ho":250000,"o":0},{"id":"matale_bakery","name":"Matale Bakery","fmt":"bakery","town":"Matale","s":[["rice_curry",780000,0.52,114000],["bakery",1320000,0.52,97000],["tea",900000,0.52,100000],["juice",105000,0.52,15000],["buy_sell",120000,0.52,0],["short_eats",240000,0.52,35000]],"g":173250,"ss":280000,"oh":170000,"bo":82000,"f":15000,"ho":175000,"o":0},{"id":"cafe1886","name":"Café 1886","fmt":"restaurant","town":"Kandy","s":[["hot_kitchen",3959606,0.5,616000],["delivery",300000,0.5,0],["juice",296785,0.5,72000],["buy_sell",278267,0.5,0],["buy_sell",67400,0.85,0],["transfer",987072,1,0]],"g":294456.4,"ss":132000,"oh":379000,"bo":141312.7,"f":454500,"ho":250000,"o":0},{"id":"gimanhala","name":"Gimanhala","fmt":"restaurant","town":"Kandy","s":[["rice_curry",2161500,0.58,201000],["roti_hoppers",345000,0.46,107500],["short_eats",198000,0.46,0],["roti_hoppers",363000,0.46,0],["tea",450000,0.46,72000],["juice",202500,0.46,8300],["buy_sell",112200,0.7,0]],"g":175000,"ss":157700,"oh":358000,"bo":72000,"f":20000,"ho":175000,"o":0},{"id":"garden_cafe","name":"Garden Café Matale","fmt":"restaurant","town":"Matale","s":[["hot_kitchen",2033460,0.6,228975],["juice",267775,0.6,16400],["buy_sell",100815,0.6,0]],"g":120102.5,"ss":52000,"oh":155000,"bo":76375,"f":70000,"ho":175000,"o":0},{"id":"garden_club","name":"Garden Club Kandy","fmt":"restaurant","town":"Kandy","s":[["hot_kitchen",925836,0.5,130000],["buy_sell",155712,0.7,0],["rice_curry",135576,0.7,90000],["buy_sell",471504,0.7,0]],"g":84431.4,"ss":130000,"oh":250000,"bo":92000,"f":62500,"ho":0,"o":45000}];
+const SAMPLE_SEC = { bakery: ['bakery', 'bakery'], short_eats: ['short', 'short'], hot_kitchen: ['hotkitchen', 'hot'], rice_curry: ['rice', 'rice'], roti_hoppers: ['roti', 'roti'], tea: ['tea', 'tea'], juice: ['juice', 'juice'], cakes: ['cakes', 'cakes'], biscuits: ['biscuits', 'biscuits'], buy_sell: ['buysell', ''], delivery: ['delivery', ''], transfer: ['transfer', ''] };
+async function sampleData(pinHash) {
+  const cfg = defaultConfig(pinHash || await sha256(PIN_SALT + DEFAULT_PIN)), data = { config: cfg };
+  const R = (id, name, kind) => { cfg.regions.push({ id, name, kind }); return id; };
+  const badulla = R('r_badulla', 'Badulla', 'bakery'), kandy = R('r_kandy', 'Kandy', 'bakery'), matale = R('r_matale', 'Matale', 'bakery'), anu = R('r_anuradhapura', 'Anuradhapura', 'bakery'), rest = R('r_rest', 'Group Restaurants', 'restaurants');
+  const addUnit = (id, name, regionId, type, base) => { cfg.units.push({ id, name, regionId, type, cats: Object.keys(base.sales) }); data['base:' + id] = base; };
+  // Badulla (old planner's own figures, 30 days a month)
+  const bd = (daily, rm) => { const b = { sales: {}, rm: {}, prod: {} }; for (const [k, v] of Object.entries(daily)) { b.sales[k] = v * 30; b.rm[k] = Math.round(v * 30 * (rm[k] || 0.5)); } return b; };
+  const rmB = { short: 0.46, roti: 0.4551, bakery: 0.52, cakes: 0.52, bread: 0.52, tea: 0.52, juice: 0.4551 };
+  const main = bd({ short: 18000, roti: 32000, bakery: 55000, cakes: 15000, bread: 12000, tea: 25000, juice: 15000 }, rmB);
+  Object.assign(main, { wastage: 120000, gaspack: 280000, branchExp: 60000, ss: 325000, oh: 340000, bm: 75000, prod: { short: { heads: 2, salary: 35750 }, roti: { heads: 3, salary: 40667 }, bakery: { heads: 8, salary: 44000 }, tea: { heads: 2, salary: 28500 }, juice: { heads: 1, salary: 25000 } } });
+  addUnit('u_bd_main', 'Main branch', badulla, 'main', main);
+  const wel = bd({ short: 8000, bakery: 22000, cakes: 2000, bread: 8000 }, rmB); Object.assign(wel, { wastage: 30000, gaspack: 0, branchExp: 10000, ss: 77500, oh: 10000, bm: 0 }); addUnit('u_bd_wel', 'Welekade', badulla, 'outlet', wel);
+  const con = bd({ short: 8000, bakery: 16000, cakes: 2000, bread: 5000, juice: 2000 }, rmB); Object.assign(con, { wastage: 25000, gaspack: 0, branchExp: 15000, ss: 57500, oh: 95000, bm: 30000 }); addUnit('u_bd_con', 'Container Box', badulla, 'outlet', con);
+  data['baseR:' + badulla] = { bo: 181500, comp: 103250, ho: 250000, rmSal: 120000 };
+  // Other branches (group budget files)
+  const where = { legendary: [kandy, 'main'], matale_bakery: [matale, 'main'], anuradhapura: [anu, 'main'], cake_republic: [anu, 'large'], cafe1886: [rest, 'restaurant'], gimanhala: [rest, 'restaurant'], garden_cafe: [rest, 'restaurant'], garden_club: [rest, 'restaurant'] };
+  const regTot = {};
+  for (const b of SAMPLE_RAW) {
+    const [rid, type] = where[b.id] || []; if (!rid) continue;
+    const base = { sales: {}, rm: {}, prod: {} };
+    for (const [sec, sales, cogs, staff] of b.s) {
+      const [cat, section] = SAMPLE_SEC[sec] || ['buysell', ''];
+      base.sales[cat] = (base.sales[cat] || 0) + sales; base.rm[cat] = Math.round((base.rm[cat] || 0) + sales * cogs);
+      if (staff && section) { const p = base.prod[section] = base.prod[section] || { cost: 0 }; p.cost += staff; }
+    }
+    for (const [s, p] of Object.entries(base.prod)) { const h = Math.max(1, Math.round(p.cost / 45000)); base.prod[s] = { heads: h, salary: Math.round(p.cost / h) }; }
+    const S = Object.values(base.sales).reduce((a, x) => a + x, 0);
+    Object.assign(base, { wastage: Math.round(S * 0.025), gaspack: Math.round(b.g), branchExp: Math.round(b.o || S * 0.015), ss: b.ss, oh: Math.round(b.oh * (type === 'restaurant' ? 0.75 : 0.85)), bm: Math.round(b.oh * 0.15) });
+    if (type === 'restaurant') { base.chef = Math.round(b.oh * 0.25 - b.oh * 0.15 + 60000); Object.assign(base, { bo: Math.round(b.bo), comp: Math.round(b.f), ho: Math.round(b.ho), rmSal: 0 }); }
+    else { const t = regTot[rid] = regTot[rid] || { bo: 0, comp: 0, ho: 0, rmSal: 150000 }; t.bo += b.bo; t.comp += b.f; t.ho += b.ho; }
+    addUnit('u_' + b.id, b.name, rid, type, base);
+  }
+  for (const [rid, t] of Object.entries(regTot)) data['baseR:' + rid] = { bo: Math.round(t.bo), comp: Math.round(t.comp), ho: Math.round(t.ho), rmSal: t.rmSal };
+  return data;
+}
+'use strict';
+/* =====================================================================
+   Salgado Budget Planner · events, actions and start-up
+   ===================================================================== */
+function setPath(o, path, v) { const ks = path.split('.'); let t = o; ks.slice(0, -1).forEach((k, i) => { if (t[k] == null) t[k] = /^\d+$/.test(ks[i + 1]) ? [] : {}; t = t[k]; }); const last = ks[ks.length - 1]; if (v === undefined) delete t[last]; else t[last] = v; }
+function getPath(o, path) { return path.split('.').reduce((a, k) => (a == null ? a : a[k]), o); }
+async function updRec(key, mut, dflt = {}) { const r = clone(Store.get(key) || dflt); mut(r); await Store.set(key, r); }
+const updPlan = (u, ym, mut) => updRec('plan:' + u.id, r => { r.m = r.m || {}; r.m[ym] = r.m[ym] || {}; mut(r.m[ym]); }, { m: {} });
+
+async function syncStaffTasks(u, ym) {
+  const ms = months(), i = ms.indexOf(ym);
+  for (let j = Math.max(0, i); j < ms.length; j++) {
+    const m = ms[j]; if (!openIn(u, m)) continue;
+    const pi = planInputs(u, m), prev = j > 0 && openIn(u, ms[j - 1]) ? planInputs(u, ms[j - 1]) : null;
+    for (const s of Object.keys(pi.heads)) {
+      const before = prev ? prev.heads[s] : num((baseOf(u).prod[s] || {}).heads), d = num(pi.heads[s]) - num(before);
+      await upsertAutoTask(`task:staff:${u.id}:${m}:${s}`, d ? `${d > 0 ? 'Recruit' : 'Remove'} ${Math.abs(d)} · ${secById(s).name} at ${u.name} from ${monthLabel(m)}` : '', u, m);
+    }
+  }
+}
+
+// ---------- Clicks ----------
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const d = t.dataset, a = d.act;
+  const go = () => render();
+  switch (a) {
+    case 'menu': ui.menu = !ui.menu; return go();
+    case 'menu-close': ui.menu = false; return go();
+    case 'setup': ui.setup = d.id; ui.menu = false; return go();
+    case 'leave-setup': ui.setup = null; return go();
+    case 'scope': ui.scope = d.kind === 'group' ? { kind: 'group' } : { kind: d.kind, id: d.id }; ui.menu = false; ui.setup = null; return go();
+    case 'tab': ui.tab = d.id; return go();
+    case 'unlock': await askPin(); return go();
+    case 'lock': ui.unlockUntil = 0; return go();
+    case 'signout': if (Store.kind === 'php') Store.php('logout', {}).catch(() => {}); Store.saveSession(null); Store.data = {}; Store.bump(); return go();
+    case 'planym': ui.planToday = d.v === 'today'; if (d.v !== 'today') { ui.ym = d.v; ui.per.var = null; ui.per.wi = null; } return go();
+    case 'menu-region': ui.menuRegion = ui.menuRegion === d.id ? null : d.id; return go();
+    case 'export': return doExport(d.kind);
+    case 'plandaily': ui.planDaily = d.v === 'true'; return go();
+    case 'staffview': ui.staffView = d.v === 'true'; return go();
+    case 'acttype': ui.actType = d.v; ui.actPeriod = null; return go();
+    case 'dectab': ui.decTab = d.v; return go();
+    case 'wi-reset': ui[d.w] = {}; return go();
+    case 'step': return stepAction(d, +d.d);
+    case 'preset': { const u = unitById(d.uid); await updPlan(u, PYM(), p => { if (p[d.f]) delete p[d.f][d.k]; }); const key = `dec:chg:${u.id}:${PYM()}:${d.f === 'sales' ? 'sales' : 'rm'}.${d.k}`; const dc = Store.get(key); if (dc && dc.status !== 'tasked') await Store.del(key); return go(); }
+    case 'cat-remove': {
+      if (!await needUnlock('Removing a category from a branch changes its base figures.')) return;
+      const u = unitById(ui.scope.id); if (!confirm(`Remove ${catById(d.k).name} from ${u.name}?`)) return;
+      await saveCfg(c => { const x = c.units.find(y => y.id === u.id); x.cats = x.cats.filter(k => k !== d.k); }); return go();
+    }
+    case 'opening-add': {
+      const rid = ($('#op-region') || {}).value, m = CFG().models.find(x => x.id === ($('#op-model') || {}).value), name = (($('#op-name') || {}).value || '').trim() || `New ${m.name.toLowerCase()}`;
+      if (!rid || !m) return;
+      const id = newId(), ym = PYM(), mt = MODEL_TYPES[m.type] || MODEL_TYPES.small_branch;
+      const cats = Object.keys(m.sales || {}).filter(k => num(m.sales[k]) > 0 && CFG().cats.some(c => c.id === k));
+      await saveCfg(c => { c.units.push({ id, name, regionId: rid, type: mt.unitType, cats, opens: ym, planned: true, modelId: m.id }); });
+      const S = sum(cats.map(k => num(m.sales[k]))), b = { sales: {}, rm: {}, prod: {} };
+      cats.forEach(k => { b.sales[k] = num(m.sales[k]); b.rm[k] = Math.round(num(m.sales[k]) * num((m.rm || {})[k] ?? defaultRmPct({ type: mt.unitType }, k)) / 100); });
+      ['wastage', 'gaspack', 'branchExp', 'ss', 'oh', 'bm'].forEach(k => { b[k] = Math.round(S * num(m[k]) / 100); });
+      await Store.set('base:' + id, b);
+      await upsertAutoTask('task:open:' + id, `Open ${name} (${m.name}) in ${monthLabel(ym)}`, { id, name }, ym);
+      toast(`${name} added, opening ${monthLabel(ym)}.`); return go();
+    }
+    case 'opening-remove': {
+      const u = unitById(d.uid); if (!confirm(`Remove the planned outlet ${u.name}?`)) return;
+      await saveCfg(c => { c.units = c.units.filter(x => x.id !== u.id); });
+      for (const k of [...Store.keys('base:' + u.id), ...Store.keys('plan:' + u.id), ...Store.keys(`task:open:${u.id}`), ...Store.keys(`task:staff:${u.id}:`), ...Store.keys(`task:capex:${u.id}:`), ...Store.keys(`dec:chg:${u.id}:`)]) await Store.del(k);
+      return go();
+    }
+    // Tasks and decisions
+    case 'task-open': ui.openTask = ui.openTask === d.key ? null : d.key; return go();
+    case 'task-done': await updRec(d.key, r => { r.status = 'done'; r.doneAt = todayStr(); }); ui.openTask = null; toast('Task marked done.'); return go();
+    case 'task-reopen': await updRec(d.key, r => { r.status = 'pending'; delete r.doneAt; }); return go();
+    case 'task-del': if (!confirm('Delete this task?')) return; await Store.del(d.key); return go();
+    case 'task-add': {
+      const title = ($('#nt-title').value || '').trim(); if (!title) return toast('Write the task first.');
+      const uid = $('#nt-unit').value, u = unitById(uid);
+      await Store.set('task:' + newId(), { title, unit: uid, where: u ? u.name : 'Group', owner: $('#nt-owner').value, due: $('#nt-due').value, notes: $('#nt-notes').value, status: 'pending', source: 'manual', createdAt: new Date().toISOString() });
+      ui.decTab = 'pending'; toast('Task created.'); return go();
+    }
+    case 'dec-task': return decToTask(d.key);
+    case 'dec-dismiss': await updRec(d.key, r => { r.status = 'dismissed'; }); return go();
+    case 'dec-add': {
+      const text = ($('#nd-text').value || '').trim(); if (!text) return; const uid = $('#nd-unit').value, u = unitById(uid);
+      await Store.set('dec:' + newId(), { kind: 'manual', text, unit: uid, where: u ? u.name : 'Group', status: 'open', createdAt: new Date().toISOString() }); return go();
+    }
+    // Budgets
+    case 'approve': {
+      const b = currentBudget();
+      if (b && !await needUnlock('Replacing the approved budget needs the director PIN.')) return;
+      const ms = perMonths('bud'), fy = ms.length === 1 ? monthLabel(ms[0]) : `${monthLabel(ms[0])} – ${monthLabel(ms[ms.length - 1])}`;
+      const name = prompt(b ? 'Name for the new budget' : 'Name for the budget', `Budget ${fy}${b ? ' (revised)' : ''}`); if (name == null) return;
+      const id = newId(); await Store.set('budget:' + id, snapshotBudget(name.trim() || `Budget ${fy}`, ms)); await saveCfg(c => { c.budgetId = id; }); ui.per.bud = null;
+      toast('Budget approved and locked.'); return go();
+    }
+    case 'print-budget': return printBudget();
+    case 'print-var': return printVariance();
+    // Actuals
+    case 'act-submit': {
+      if (!confirm('Submit and lock this month? Only a director can unlock it.')) return;
+      await updRec(d.key, r => { r.v = r.v || {}; r.submitted = true; r.submittedAt = todayStr(); }, { v: {} }); toast('Month submitted and locked.'); return go();
+    }
+    case 'act-unlock': if (!await needUnlock('Unlocking a submitted month needs the director PIN.')) return; await updRec(d.key, r => { r.submitted = false; }); toast('Month unlocked.'); return go();
+    // Set-up
+    case 'region-add': { const name = ($('#nr-name').value || '').trim(); if (!name) return toast('Give the region a name.'); await saveCfg(c => { c.regions.push({ id: newId(), name, kind: $('#nr-kind').value }); }); return go(); }
+    case 'region-del': { if (unitsIn(d.rid).length) return toast('Delete or move its branches first.'); if (!confirm('Delete this region?')) return; await saveCfg(c => { c.regions = c.regions.filter(r => r.id !== d.rid); }); return go(); }
+    case 'unit-add': { const r = regionById(d.rid), rest = r.kind === 'restaurants'; await saveCfg(c => { c.units.push({ id: newId(), name: rest ? 'New restaurant' : 'New branch', regionId: r.id, type: rest ? 'restaurant' : unitsIn(r.id).some(u => u.type === 'main') ? 'outlet' : 'main', cats: rest ? ['rice', 'hotkitchen', 'juice'] : ['bakery', 'bread', 'cakes', 'short', 'tea'] }); }); return go(); }
+    case 'unit-del': { const u = unitById(d.uid); if (!confirm(`Delete ${u.name}? Its base figures, plan and actuals are deleted too.`)) return; await saveCfg(c => { c.units = c.units.filter(x => x.id !== u.id); }); for (const k of [...Store.keys('base:' + u.id), ...Store.keys('plan:' + u.id), ...Store.keys('act:' + u.id + ':')]) await Store.del(k); return go(); }
+    case 'model-add': await saveCfg(c => { c.models.push({ id: newId(), type: 'small_branch', name: 'New outlet model', sales: {}, rm: {}, wastage: 3, gaspack: 2, branchExp: 3, ss: 7, oh: 6, bm: 3 }); }); return go();
+    case 'model-del': if (!confirm('Delete this model?')) return; await saveCfg(c => { c.models.splice(+d.i, 1); }); return go();
+    case 'cat-add': { const name = ($('#nc-name').value || '').trim(); if (!name) return; await saveCfg(c => { c.cats.push({ id: 'c' + newId().slice(-6), name, section: '', vatExempt: false, inputVat: 40 }); }); return go(); }
+    case 'cat-del': { const k = CFG().cats[+d.i]; if (CFG().units.some(u => u.cats.includes(k.id))) return toast('Remove it from every branch first (Group structure).'); await saveCfg(c => { c.cats.splice(+d.i, 1); }); return go(); }
+    case 'sec-add': { const name = ($('#ns-name').value || '').trim(); if (!name) return; await saveCfg(c => { c.sections.push({ id: 's' + newId().slice(-6), name }); }); return go(); }
+    case 'sec-del': { const s = CFG().sections[+d.i]; if (CFG().cats.some(c => c.section === s.id)) return toast('Move its categories to another production unit first.'); await saveCfg(c => { c.sections.splice(+d.i, 1); }); return go(); }
+    case 'base-sec-add': { const s = ($('#bsec-' + d.uid) || {}).value; if (!s) return; await updRec('base:' + d.uid, b => { b.prod = b.prod || {}; b.prod[s] = { heads: 1, salary: 50000 }; }); return go(); }
+    case 'base-sec-del': await updRec('base:' + d.uid, b => { delete (b.prod || {})[d.k]; }); return go();
+    case 'pin-change': {
+      const o = $('#pin-old').value, n1 = $('#pin-new').value, n2 = $('#pin-new2').value;
+      if (await sha256(PIN_SALT + o) !== CFG().pinHash) return toast('The current PIN is wrong.');
+      if (n1.length < 4 || n1 !== n2) return toast('The new PIN must be at least 4 characters and match.');
+      const h = await sha256(PIN_SALT + n1); await saveCfg(c => { c.pinHash = h; }); toast('PIN changed.'); return go();
+    }
+    case 'backup': { const blob = new Blob([JSON.stringify({ app: 'salgado-planner', at: new Date().toISOString(), data: Store.data }, null, 1)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = url; el.download = `salgado-planner-backup-${todayStr()}.json`; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); return; }
+    case 'sample': if (!await needUnlock('Loading sample data replaces the current set-up.')) return; if (!confirm('Replace everything with the sample data?')) return; await Store.replaceAll(await sampleData(CFG().pinHash)); toast('Sample data loaded.'); ui.scope = { kind: 'group' }; return go();
+    case 'clear-all': if (!await needUnlock('Clearing all data needs the director PIN.')) return; if (!confirm('Delete ALL data: structure, base figures, plans, budgets, actuals and tasks? Download a backup first.')) return; await Store.replaceAll({ config: defaultConfig(CFG().pinHash) }); ui.scope = { kind: 'group' }; toast('All data cleared.'); return go();
+  }
+});
+async function decToTask(key) {
+  const dc = Store.get(key); if (!dc) return;
+  const tid = 'task:' + newId();
+  await Store.set(tid, { title: dc.text, unit: dc.unit || '', where: dc.where || '', ym: dc.ym || '', owner: '', due: dc.ym ? `${dc.ym}-01` : addDays(todayStr(), 14), notes: '', status: 'pending', source: 'decision', createdAt: new Date().toISOString() });
+  await updRec(key, r => { r.status = 'tasked'; r.task = tid; }); toast('Task created on Decisions & actions.'); render();
+}
+async function stepAction(d, delta) {
+  const ym = PYM();
+  if (d.kind === 'wi') { const w = ui[d.w]; w[d.k] = Math.round((num(w[d.k]) + delta) * 10) / 10; return render(); }
+  if (d.kind === 'wirm') { const w = ui[d.w]; w.rmPts = w.rmPts || {}; w.rmPts[d.k] = Math.round((num(w.rmPts[d.k]) + delta) * 10) / 10; return render(); }
+  if (d.kind === 'radj') { const cur = regionPlanInputs(d.rid, ym).adj[d.k]; return setRegAdj(d.rid, ym, d.k, cur + delta); }
+  const u = unitById(ui.scope.id); if (!u) return;
+  const pi = planInputs(u, ym);
+  if (d.kind === 'adj') return setAdj(u, ym, d.k, pi.adj[d.k] + delta);
+  if (d.kind === 'heads') return setHeads(u, ym, d.k, Math.max(0, num(pi.heads[d.k]) + delta));
+}
+async function setAdj(u, ym, k, v) {
+  v = Math.round(v * 10) / 10; const before = planInputs(u, ym).adj[k], bp = basePct(u);
+  await updPlan(u, ym, p => { p.adj = p.adj || {}; p.adj[k] = v; });
+  await logChange(u, ym, 'adj.' + k, lineLabel(k) + ' (% of sales)', pct(bp[k] + before / 100), pct(bp[k] + v / 100)); render();
+}
+async function setRegAdj(rid, ym, k, v) { v = Math.round(v * 10) / 10; await updRec('planR:' + rid, r => { r.m = r.m || {}; r.m[ym] = r.m[ym] || {}; r.m[ym].adj = r.m[ym].adj || {}; r.m[ym].adj[k] = v; }, { m: {} }); render(); }
+async function setHeads(u, ym, s, v) { await updPlan(u, ym, p => { p.heads = p.heads || {}; p.heads[s] = v; }); await syncStaffTasks(u, ym); render(); }
+
+// ---------- Changes (inputs) ----------
+document.addEventListener('change', async e => {
+  const el = e.target, d = el.dataset, ch = d.ch; if (!ch) return;
+  const val = el.value;
+  switch (ch) {
+    case 'ym': ui.ym = val; ui.per.var = null; ui.per.wi = null; return render();
+    case 'planym': ui.planToday = val === 'today'; if (val !== 'today') { ui.ym = val; ui.per.var = null; ui.per.wi = null; } return render();
+    case 'planstart': await saveCfg(c => { c.plan.start = val; }); return render();
+    case 'plann': await saveCfg(c => { c.plan.n = +val; }); return render();
+    case 'per': { const p = { ...perGet(d.key) }; p[d.f] = d.f === 'n' ? +val : val; ui.per[d.key] = p; if (d.key === 'var' || d.key === 'wi') { /* keep */ } return render(); }
+    case 'showcats': ui.showCats = el.checked; return render();
+    case 'varrep': ui.varRep = +val; return render();
+    case 'varsep': ui.varSep = el.checked; return render();
+    case 'actperiod': ui.actPeriod = val; if (val.startsWith('m:')) ui.ym = months().includes(val.slice(2)) ? val.slice(2) : ui.ym; return render();
+    case 'basesel': ui.baseSel = val; return render();
+    case 'stepval': {
+      const v = num(val);
+      if (d.kind === 'wi') { ui[d.w][d.k] = v; return render(); }
+      if (d.kind === 'wirm') { ui[d.w].rmPts = ui[d.w].rmPts || {}; ui[d.w].rmPts[d.k] = v; return render(); }
+      if (d.kind === 'radj') return setRegAdj(d.rid, PYM(), d.k, v);
+      const u = unitById(ui.scope.id); if (d.kind === 'adj') return setAdj(u, PYM(), d.k, v); if (d.kind === 'heads') return setHeads(u, PYM(), d.k, Math.max(0, Math.round(v)));
+      return;
+    }
+    case 'salary': { const u = unitById(ui.scope.id); await updPlan(u, PYM(), p => { p.salary = p.salary || {}; p.salary[d.k] = num(val); }); return render(); }
+    case 'capex': {
+      const u = unitById(d.uid), ym = PYM(); await updPlan(u, ym, p => { if (val === '') delete p[d.k]; else p[d.k] = num(val); });
+      const p = planRec(u)[ym] || {}, cx = num(p.capex), mt = num(p.maint);
+      await upsertAutoTask(`task:capex:${u.id}:${ym}`, cx || mt ? `${[cx ? 'Capex ' + money(cx) : '', mt ? 'maintenance ' + money(mt) : ''].filter(Boolean).join(' and ')} at ${u.name} in ${monthLabel(ym)}` : '', u, ym); return render();
+    }
+    case 'psales': case 'pmargin': {
+      const u = unitById(d.uid), ym = PYM(), before = planInputs(u, ym);
+      if (ch === 'psales') { const v = Math.max(0, num(val)); if (Math.round(v) === Math.round(before.salesC[d.k])) return render(); await updPlan(u, ym, p => { p.sales = p.sales || {}; p.sales[d.k] = v; }); await logChange(u, ym, 'sales.' + d.k, catById(d.k).name + ' sales', money(before.salesC[d.k]), money(v)); }
+      else { const m = Math.min(100, Math.max(-100, num(val))); if (Math.abs((100 - m) - before.rmPct[d.k]) < 0.05) return render(); await updPlan(u, ym, p => { p.rmPct = p.rmPct || {}; p.rmPct[d.k] = 100 - m; }); await logChange(u, ym, 'rm.' + d.k, catById(d.k).name + ' RM margin', (100 - before.rmPct[d.k]).toFixed(1) + '%', m.toFixed(1) + '%'); }
+      return render();
+    }
+    case 'dectick': if (el.checked) return decToTask(d.key); return;
+    case 'task-field': return updRec(d.key, r => { r[d.f] = val; }).then(render);
+    case 'actual': {
+      const key = `${d.prefix}:${d.period}`, rec = Store.get(key);
+      if (rec && rec.submitted) { toast('This month is locked.'); return render(); }
+      const v = val.trim() === '' ? undefined : num(val);
+      await updRec(key, r => { r.v = r.v || {}; if (d.c) { r.v[d.k] = r.v[d.k] || {}; if (v === undefined) delete r.v[d.k][d.c]; else r.v[d.k][d.c] = v; } else if (v === undefined) delete r.v[d.k]; else r.v[d.k] = v; r.at = new Date().toISOString(); }, { v: {} });
+      return render();
+    }
+    // Set-up
+    case 'cfg': {
+      if (!isUnlocked()) { toast('Unlock with the PIN first.'); return render(); }
+      let v = d.type === 'num' ? (val.trim() === '' ? undefined : num(val)) : d.type === 'bool' ? el.checked : val;
+      if (d.type === 'month' && !/^\d{4}-\d{2}$/.test(v)) return render();
+      await saveCfg(c => setPath(c, d.path, v)); return render();
+    }
+    case 'region-name': if (!isUnlocked()) return render(); await saveCfg(c => { c.regions.find(r => r.id === d.rid).name = val.trim() || 'Region'; }); return render();
+    case 'unit-f': if (!isUnlocked()) return render(); await saveCfg(c => { const u = c.units.find(x => x.id === d.uid); if (d.f === 'opens' && !val) delete u.opens; else u[d.f] = d.f === 'name' ? (val.trim() || 'Branch') : val; }); return render();
+    case 'unit-cat': if (!isUnlocked()) return render(); await saveCfg(c => { const u = c.units.find(x => x.id === d.uid); u.cats = el.checked ? [...new Set([...u.cats, d.k])] : u.cats.filter(k => k !== d.k); }); return render();
+    case 'base': {
+      if (!isUnlocked()) { toast('Unlock with the PIN first.'); return render(); }
+      const v = val.trim() === '' ? undefined : num(val); await updRec(d.key, b => setPath(b, d.path, v)); return render();
+    }
+    case 'restore': {
+      const f = el.files && el.files[0]; el.value = ''; if (!f) return;
+      if (!await needUnlock('Restoring a backup replaces all data.')) return;
+      try { const j = JSON.parse(await f.text()); if (!j.data || !j.data.config) throw new Error('not a planner backup'); if (!confirm(`Replace all data with the backup from ${fmtDate((j.at || '').slice(0, 10))}?`)) return; await Store.replaceAll(j.data); toast('Backup restored.'); render(); }
+      catch (err) { toast('That file is not a planner backup.'); }
+      return;
+    }
+  }
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'login-form') return; e.preventDefault();
+  const err = $('#lg-err'); err.textContent = 'Signing in…';
+  try { await Store.login($('#lg-user').value, $('#lg-pass').value); await startRemote(); }
+  catch (x) { err.textContent = x.message === 'Invalid login credentials' ? 'Wrong login name or password.' : x.message; }
+});
+document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('[data-setupfold]')) ui.setupOpen = e.target.open; }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.menu) { ui.menu = false; render(); } });
+
+// ---------- Start-up ----------
+const DEFAULT_PIN = '1295';
+async function ensureConfig() { if (!CFG()) await Store.set('config', defaultConfig(await sha256(PIN_SALT + DEFAULT_PIN))); }
+async function startRemote() {
+  Store.mode = 'remote'; render();
+  try { await Store.loadRemote(); } catch (e) { if (/401|JWT|Signed out|Not signed in/.test(e.message)) { Store.saveSession(null); return render(); } Store.error = 'Could not load: ' + e.message; }
+  await ensureConfig(); render();
+  clearInterval(startRemote.t); startRemote.t = setInterval(() => Store.poll(), 30000);
+  window.addEventListener('focus', () => Store.poll());
+}
+Store.onChange = kind => {
+  if (kind === 'remote') { const a = document.activeElement; if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && a.closest('#app')) { Store.dirtyRender = true; return; } render(); }
+  else { const s = document.querySelector('.sync'); if (s && Store.mode === 'remote') { const dot = s.querySelector('.dot'); if (dot) { dot.className = 'dot' + (Store.error ? ' err' : Store.pending ? ' busy' : ''); dot.nextSibling.textContent = ' ' + (Store.error ? Store.error : Store.pending ? 'Saving…' : 'Saved'); } } }
+};
+document.addEventListener('focusout', () => setTimeout(() => { if (Store.dirtyRender && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) { Store.dirtyRender = false; render(); } }, 100));
+async function boot() {
+  if (Store.remoteConfigured()) { Store.mode = 'remote'; if (Store.restoreSession()) return startRemote(); return render(); }
+  Store.mode = 'local'; Store.loadLocal(); await ensureConfig(); render();
+}
+window.addEventListener('DOMContentLoaded', boot);
+</script></body></html>
